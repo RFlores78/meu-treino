@@ -61,21 +61,36 @@ init_db()
 if 'hora_inicio' not in st.session_state: st.session_state.hora_inicio = None
 
 st.title("⚡ PowerLog PRO")
-menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico"])
+menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Gerenciar Treinos"])
 
 if menu == "🏋️ Treinar Agora":
-    treino_sel = st.radio("Selecione o Treino:", ["A", "B", "C", "D"], horizontal=True)
+    # Carregar treinos dinamicamente do banco de dados
+    conn = sqlite3.connect('treino_final_v2.db')
+    lista_treinos = pd.read_sql("SELECT DISTINCT treino FROM exercicios", conn)['treino'].tolist()
+    conn.close()
+    
+    treino_sel = st.radio("Selecione o Treino:", sorted(lista_treinos), horizontal=True)
 
     if st.session_state.hora_inicio:
         seg_totais = int(time.time() - st.session_state.hora_inicio)
         tempo_f = f"{seg_totais//60:02d}:{seg_totais%60:02d}"
         st.markdown(f"<div class='time-display'>⏱️ {tempo_f}</div>", unsafe_allow_html=True)
-        if st.button("🏁 Finalizar Treino"):
-            conn = sqlite3.connect('treino_final_v2.db'); conn.cursor().execute("INSERT INTO sessoes (data, duracao, treino_tipo) VALUES (?, ?, ?)", (datetime.now().strftime("%Y-%m-%d"), tempo_f, treino_sel)); conn.commit(); conn.close()
-            st.session_state.hora_inicio = None; st.rerun()
-        time.sleep(1); st.rerun()
-    elif st.button("▶️ Iniciar Treino"):
-        st.session_state.hora_inicio = time.time(); st.rerun()
+        
+        # Botão Encerrar que aparece apenas quando o treino está ativo
+        if st.button("🏁 ENCERRAR TREINO"):
+            conn = sqlite3.connect('treino_final_v2.db')
+            conn.cursor().execute("INSERT INTO sessoes (data, duracao, treino_tipo) VALUES (?, ?, ?)", 
+                                (datetime.now().strftime("%Y-%m-%d"), tempo_f, treino_sel))
+            conn.commit(); conn.close()
+            st.session_state.hora_inicio = None
+            st.success("Treino guardado!")
+            st.rerun()
+        time.sleep(1)
+        st.rerun()
+    else:
+        if st.button("▶️ INICIAR TREINO"):
+            st.session_state.hora_inicio = time.time()
+            st.rerun()
 
     st.divider()
 
@@ -89,10 +104,8 @@ if menu == "🏋️ Treinar Agora":
         
         st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
 
-        # Seleção de Séries (Padrão: 4)
         n_series = st.number_input("Quantidade de Séries", 1, 10, 4)
 
-        # Interface Simplificada (Peso e Reps únicos que valem para todas as séries)
         if dados['e1'] != '':
             col1, col2 = st.columns(2)
             with col1:
@@ -109,7 +122,7 @@ if menu == "🏋️ Treinar Agora":
                 for i in range(int(n_series)):
                     c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['e1'], p1, r1, i+1))
                     c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['e2'], p2, r2, i+1))
-                conn.commit(); conn.close(); st.success(f"{n_series} séries salvas com sucesso!")
+                conn.commit(); conn.close(); st.success("Séries salvas!")
         else:
             c1, c2 = st.columns(2)
             with c1: p = st.number_input("Peso (kg)", 0.0, 500.0, step=0.5)
@@ -119,7 +132,28 @@ if menu == "🏋️ Treinar Agora":
                 conn = sqlite3.connect('treino_final_v2.db'); c = conn.cursor(); hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
                 for i in range(int(n_series)):
                     c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['nome'], p, r, i+1))
-                conn.commit(); conn.close(); st.success(f"{n_series} séries salvas com sucesso!")
+                conn.commit(); conn.close(); st.success("Séries salvas!")
+
+elif menu == "🆕 Gerenciar Treinos":
+    st.subheader("Adicionar Novo Exercício")
+    with st.form("novo_exercicio"):
+        t_id = st.text_input("Identificador do Treino (Ex: E, F, G)", placeholder="E")
+        t_emoji = st.text_input("Emoji", value="💪")
+        t_nome = st.text_input("Nome do Exercício ou Combo")
+        
+        st.info("Deixe os campos abaixo vazios se não for um Combo")
+        t_e1 = st.text_input("Exercício 1 (Se combo)")
+        t_e2 = st.text_input("Exercício 2 (Se combo)")
+        
+        if st.form_submit_button("➕ Adicionar ao Plano"):
+            if t_id and t_nome:
+                conn = sqlite3.connect('treino_final_v2.db')
+                conn.cursor().execute("INSERT INTO exercicios (treino, emoji, nome, e1, e2) VALUES (?, ?, ?, ?, ?)", 
+                                    (t_id.upper(), t_emoji, t_nome, t_e1, t_e2))
+                conn.commit(); conn.close()
+                st.success(f"Exercício '{t_nome}' adicionado ao Treino {t_id.upper()}!")
+            else:
+                st.error("Preencha o Identificador e o Nome.")
 
 elif menu == "📊 Histórico":
     st.subheader("📈 Histórico de Cargas")
