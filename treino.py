@@ -88,19 +88,25 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Hist�
 
 # --- MENU: CONFIGURAR ---
 if menu == "🆕 Configurar Meus Treinos":
-    st.subheader("🛠️ Monte sua Grade de Treino")
-    df_cat = buscar_catalogo()
-    with st.form("form_montagem"):
-        nome_treino = st.text_input("Nome do treino (Ex: Treino A)", placeholder="Ex: Superior")
-        escolha = st.selectbox("Escolha do catálogo:", df_cat['nome'].tolist() if not df_cat.empty else [])
-        if st.form_submit_button("➕ Adicionar"):
-            if nome_treino and not df_cat.empty:
-                detalhes = df_cat[df_cat['nome'] == escolha].iloc[0]
-                supabase.table("exercicios").insert({
-                    "user_id": user_id, "treino": nome_treino.upper(), "nome": escolha, "emoji": detalhes['emoji']
-                }).execute()
-                st.success("Adicionado!")
-                st.rerun()
+    st.divider()
+    st.subheader("📋 Seus Exercícios (Clique na lixeira para excluir)")
+    meus_ex = buscar_meus_treinos()
+    
+    if not meus_ex.empty:
+        for i, row in meus_ex.iterrows():
+            col1, col2, col3 = st.columns([1, 4, 1])
+            with col1:
+                st.markdown(f"**{row['treino']}**")
+            with col2:
+                st.write(f"{row['emoji']} {row['nome']}")
+            with col3:
+                # O usuário clica aqui para apagar a configuração errada
+                if st.button("🗑️", key=f"del_conf_{row['id']}"):
+                    supabase.table("exercicios").delete().eq("id", row['id']).execute()
+                    st.success("Excluído!")
+                    st.rerun()
+    else:
+        st.info("Nenhum exercício configurado.")
 
     st.divider()
     st.write("📋 **Sua Configuração Atual:**")
@@ -227,14 +233,22 @@ elif menu == "📊 Histórico":
             st.info("Ainda não há logs para gerar o gráfico.")
 
     with tab3:
+        df_l = buscar_logs()
         if not df_l.empty:
-            st.write("### Gerenciar Registros")
-            # Adicionei aqui a opção de excluir um log errado como você perguntou antes
-            for i, row in df_l.sort_values('id', ascending=False).head(10).iterrows():
-                cols = st.columns([2, 2, 1, 1])
-                cols[0].write(f"{row['data']}")
-                cols[1].write(f"{row['exercicio']}")
-                cols[2].write(f"{row['peso']}kg")
-                if cols[3].button("🗑️", key=f"dellog_{row['id']}"):
-                    supabase.table("logs").delete().eq("id", row['id']).execute()
-                    st.rerun()
+            st.subheader("📋 Últimos Registros (Clique na lixeira para excluir)")
+            # Mostra os logs do mais recente para o mais antigo
+            df_recente = df_l.sort_values('id', ascending=False).head(20)
+            
+            for i, row in df_recente.iterrows():
+                c1, c2, c3, c4 = st.columns([2, 3, 1, 1])
+                c1.write(f"📅 {row['data']}")
+                c2.write(f"🏋️ {row['exercicio']}")
+                c3.write(f"⚖️ {row['peso']}kg")
+                with c4:
+                    # O usuário apaga o peso/série que digitou errado
+                    if st.button("🗑️", key=f"del_log_{row['id']}"):
+                        supabase.table("logs").delete().eq("id", row['id']).execute()
+                        st.success("Registro removido!")
+                        st.rerun()
+        else:
+            st.info("Sem registros para excluir.")
