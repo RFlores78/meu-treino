@@ -50,6 +50,79 @@ if st.session_state.user is None:
 
 # Se chegou aqui, o usuário está logado
 user_id = st.session_state.user.id
+
+# --- FUNÇÕES DE BUSCA NO SUPABASE ---
+
+def buscar_catalogo():
+    # Puxa os exercícios que você acabou de cadastrar via SQL
+    res = supabase.table("catalogo_exercicios").select("*").order("nome").execute()
+    return pd.DataFrame(res.data)
+
+def buscar_meus_treinos():
+    # Puxa APENAS os exercícios que o aluno logado escolheu para ele
+    res = supabase.table("exercicios").select("*").eq("user_id", user_id).execute()
+    return pd.DataFrame(res.data)
+
+# --- INTERFACE ---
+
+st.title("⚡ PowerLog PRO")
+menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Configurar Meus Treinos"])
+
+# 1. MENU PARA O ALUNO MONTAR O TREINO
+if menu == "🆕 Configurar Meus Treinos":
+    st.subheader("🛠️ Monte sua Grade de Treino")
+    
+    df_cat = buscar_catalogo()
+    
+    with st.form("form_montagem"):
+        nome_treino = st.text_input("Dê um nome ao treino (Ex: Treino A, Pernas)", placeholder="Ex: Superior")
+        
+        # O SEGREDO: O aluno escolhe da lista da Smart Fit que você buscou
+        escolha = st.selectbox("Escolha um exercício do catálogo:", df_cat['nome'].tolist())
+        
+        if st.form_submit_button("➕ Adicionar ao meu Plano"):
+            if nome_treino:
+                # Pega os detalhes (emoji) do exercício selecionado
+                detalhes = df_cat[df_cat['nome'] == escolha].iloc[0]
+                
+                # Salva na tabela 'exercicios' vinculando ao aluno logado
+                supabase.table("exercicios").insert({
+                    "user_id": user_id,
+                    "treino": nome_treino.upper(),
+                    "nome": escolha,
+                    "emoji": detalhes['emoji']
+                }).execute()
+                
+                st.success(f"{escolha} adicionado ao seu {nome_treino}!")
+                st.rerun()
+            else:
+                st.error("Escreva o nome do treino!")
+
+    st.divider()
+    st.write("📋 **Sua Configuração Atual:**")
+    meus_ex = buscar_meus_treinos()
+    if not meus_ex.empty:
+        st.dataframe(meus_ex[['treino', 'nome', 'emoji']], use_container_width=True, hide_index=True)
+
+# 2. MENU PARA O ALUNO EXECUTAR O TREINO
+elif menu == "🏋️ Treinar Agora":
+    meus_ex = buscar_meus_treinos()
+    
+    if meus_ex.empty:
+        st.warning("Você ainda não configurou nenhum treino. Vá em 'Configurar Meus Treinos'.")
+    else:
+        # Mostra apenas os treinos que ESSE aluno criou
+        lista_treinos = sorted(meus_ex['treino'].unique())
+        treino_sel = st.radio("Qual treino vamos fazer hoje?", lista_treinos, horizontal=True)
+        
+        # Filtra os exercícios que pertencem a esse treino escolhido
+        ex_disponiveis = meus_ex[meus_ex['treino'] == treino_sel]
+        ex_escolhido = st.selectbox("Selecione o Exercício:", ex_disponiveis['nome'])
+        
+        dados = ex_disponiveis[ex_disponiveis['nome'] == ex_escolhido].iloc[0]
+        st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
+        
+        # (Aqui você mantém seu código de salvar Peso e Repetições nos LOGS)
 st.sidebar.write(f"Logado como: {st.session_state.user.email}")
 if st.sidebar.button("Sair"):
     supabase.auth.sign_out()
