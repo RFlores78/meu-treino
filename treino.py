@@ -177,19 +177,43 @@ elif menu == "🏋️ Treinar Agora":
 elif menu == "📊 Histórico":
     df_l = buscar_logs()
     df_s = buscar_sessoes()
-    
-    tab1, tab2 = st.tabs(["🗓️ Calendário", "📈 Evolução"])
-    
-    with tab1:
-        eventos = []
-        if not df_s.empty:
-            for _, r in df_s.iterrows():
-                eventos.append({
-                    "title": f"💪 {r['treino_tipo']}", 
-                    "start": r['data'], 
-                    "backgroundColor": "#007bff"
-                })
-        calendar(events=eventos, options={"locale": "pt-br"})
+
+    # --- CÁLCULO DE MÉTRICAS ---
+    if not df_s.empty:
+        # Garante que a data seja lida corretamente
+        df_s['data_dt'] = pd.to_datetime(df_s['data'], errors='coerce')
+        hoje = datetime.now()
+
+        def calcular_stats(dias):
+            # Filtra o período
+            filtro = df_s[df_s['data_dt'] > (hoje - timedelta(days=dias))].copy()
+            
+            # Converte "MM:SS" para minutos totais
+            def converter_minutos(tempo_str):
+                try:
+                    m, s = map(int, tempo_str.split(':'))
+                    return m + (s / 60)
+                except:
+                    return 0
+            
+            total_minutos = filtro['duracao'].apply(converter_minutos).sum()
+            dias_treinados = filtro['data'].nunique()
+            return int(total_minutos), dias_treinados
+
+        # Calcula os 3 períodos
+        m_sem, d_sem = calcular_stats(7)
+        m_mes, d_mes = calcular_stats(30)
+        m_ano, d_ano = calcular_stats(365)
+
+        # --- EXIBIÇÃO DAS MÉTRICAS ---
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(f"<div class='metric-box'>📅 SEMANA<br>⏱️ {m_sem} min<br>🔥 {d_sem} dias</div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div class='metric-box'>📅 MÊS<br>⏱️ {m_mes} min<br>🔥 {d_mes} dias</div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='metric-box'>📅 ANO<br>⏱️ {m_ano} min<br>🔥 {d_ano} dias</div>", unsafe_allow_html=True)
+        st.divider()
         
     with tab2:
         if not df_l.empty:
