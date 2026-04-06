@@ -8,9 +8,9 @@ from streamlit_calendar import calendar
 # CÓDIGO PARA FORÇAR O ÍCONE NO CELULAR
 st.markdown(
     f"""
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/icon.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
     """,
     unsafe_allow_html=True
 )
