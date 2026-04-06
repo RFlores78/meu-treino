@@ -159,41 +159,42 @@ elif menu == "📊 Histórico":
 
     with tab3:
         if not df_l.empty:
-            st.subheader("📋 Registro Detalhado")
+            st.subheader("📋 Resumo por Exercício")
             
-            # Preparação dos dados para exibição limpa
-            df_display = df_l.copy()
-            df_display = df_display.sort_values('id', ascending=False)
+            # Criando o DataFrame de exibição agrupado
+            df_grouped = df_l.copy()
             
-            # Filtro simplificado
-            lista_ex = ["Todos"] + sorted(list(df_display['exercicio'].unique()))
-            filtro = st.selectbox("Filtrar por exercício:", lista_ex, key="filtro_tabela")
+            # Agrupamos por Data e Exercício para contar as séries e pegar os valores
+            # Usamos 'max' para peso e reps pois você confirmou que são iguais em todas as séries
+            df_resumo = df_grouped.groupby(['data', 'exercicio']).agg({
+                'serie_num': 'count',
+                'peso': 'max',
+                'reps': 'max'
+            }).reset_index()
+            
+            # Ordenar pelo mais recente (assumindo formato de data string DD/MM/YYYY HH:MM)
+            df_resumo['data_dt'] = pd.to_datetime(df_resumo['data'], format="%d/%m/%Y %H:%M")
+            df_resumo = df_resumo.sort_values('data_dt', ascending=False)
+            
+            # Filtro
+            lista_ex = ["Todos"] + sorted(list(df_resumo['exercicio'].unique()))
+            filtro = st.selectbox("Filtrar exercício:", lista_ex, key="filtro_resumo")
             
             if filtro != "Todos":
-                df_display = df_display[df_display['exercicio'] == filtro]
+                df_resumo = df_resumo[df_resumo['exercicio'] == filtro]
 
-            # Configuração Profissional da Tabela
             st.dataframe(
-                df_display,
-                column_order=("data", "exercicio", "serie_num", "peso", "reps"), # Ordem das colunas
+                df_resumo,
+                column_order=("data", "exercicio", "serie_num", "peso", "reps"),
                 column_config={
-                    "data": st.column_config.TextColumn("📅 Data/Hora"),
+                    "data": st.column_config.TextColumn("📅 Data"),
                     "exercicio": st.column_config.TextColumn("🏋️ Exercício"),
-                    "serie_num": st.column_config.NumberColumn("🔢 Série"),
+                    "serie_num": st.column_config.NumberColumn("🔢 Séries Totais"),
                     "peso": st.column_config.NumberColumn("⚖️ Carga", format="%.1f kg"),
-                    "reps": st.column_config.NumberColumn("🔁 Repetições", format="%d reps"),
+                    "reps": st.column_config.NumberColumn("🔁 Reps/Série", format="%d reps"),
                 },
-                hide_index=True, # Remove a coluna de números da esquerda
+                hide_index=True,
                 use_container_width=True
             )
-            
-            # Botão para limpar histórico (opcional, use com cuidado)
-            if st.checkbox("Mostrar opções de exclusão"):
-                if st.button("🗑️ Limpar todos os registros"):
-                    conn = sqlite3.connect('treino_final_v2.db')
-                    conn.cursor().execute("DELETE FROM logs")
-                    conn.commit(); conn.close()
-                    st.warning("Histórico apagado!")
-                    st.rerun()
         else:
-            st.info("Nenhum registro encontrado.")
+            st.info("Ainda não há registros para resumir.")
