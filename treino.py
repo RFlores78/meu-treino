@@ -168,6 +168,12 @@ elif menu == "🏋️ Treinar Agora":
         dados = ex_f[ex_f['nome'] == escolhido].iloc[0]
         
         st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
+
+        if 'gif_url' in dados and pd.notna(dados['gif_url']) and dados['gif_url'] != "":
+            st.image(dados['gif_url'], caption=f"Demonstração: {dados['nome']}", use_container_width=True)
+        else:
+        # Se não tiver GIF, mostra um aviso amigável
+        st.info("💡 Dica: Foque na execução lenta e sinta o músculo trabalhar.")
         
         n_series = st.number_input("Séries", 1, 10, 4)
         c1, c2 = st.columns(2)
