@@ -5,6 +5,56 @@ from datetime import datetime, timedelta
 import time
 from streamlit_calendar import calendar
 
+import streamlit as st
+from supabase import create_client, Client
+
+# Conexão com as chaves que você salvou nos Secrets
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
+
+# --- LÓGICA DE LOGIN ---
+if 'user' not in st.session_state:
+    st.session_state.user = None
+
+def pagina_login():
+    st.title("⚡ PowerLog PRO - Login")
+    
+    aba = st.tabs(["Entrar", "Criar Conta"])
+    
+    with aba[0]:
+        email = st.text_input("E-mail", key="login_email")
+        senha = st.text_input("Senha", type="password", key="login_senha")
+        if st.button("Aceder"):
+            try:
+                res = supabase.auth.sign_in_with_password({"email": email, "password": senha})
+                st.session_state.user = res.user
+                st.rerun()
+            except:
+                st.error("E-mail ou senha inválidos.")
+                
+    with aba[1]:
+        novo_email = st.text_input("E-mail", key="reg_email")
+        nova_senha = st.text_input("Senha (mín. 6 caracteres)", type="password", key="reg_senha")
+        if st.button("Cadastrar"):
+            try:
+                res = supabase.auth.sign_up({"email": novo_email, "password": nova_senha})
+                st.success("Conta criada! Verifique o seu e-mail para confirmar.")
+            except Exception as e:
+                st.error(f"Erro ao criar conta: {e}")
+
+# Bloqueio de ecrã: se não estiver logado, mostra apenas o login e para o código
+if st.session_state.user is None:
+    pagina_login()
+    st.stop()
+
+# Se chegou aqui, o usuário está logado
+user_id = st.session_state.user.id
+st.sidebar.write(f"Logado como: {st.session_state.user.email}")
+if st.sidebar.button("Sair"):
+    supabase.auth.sign_out()
+    st.session_state.user = None
+    st.rerun()
 # CÓDIGO PARA FORÇAR O ÍCONE NO CELULAR
 st.markdown(
     f"""
