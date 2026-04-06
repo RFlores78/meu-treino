@@ -89,30 +89,30 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Hist�
 # --- MENU: CONFIGURAR ---
 if menu == "🆕 Configurar Meus Treinos":
     # --- ADICIONE ESTE BLOCO AQUI ---
-    st.subheader("➕ Adicionar Novo Exercício ao Plano")
-    df_cat = buscar_catalogo()
+    # --- SUBSTITUA O FORMULÁRIO DE ADIÇÃO POR ESTE ---
+st.subheader("➕ Adicionar Novo Exercício ao Plano")
+df_cat = buscar_catalogo()
+
+with st.form("novo_exercicio"):
+    # Removido o 'max_chars=1' para permitir palavras inteiras
+    nome_treino = st.text_input("Nome do Treino (Ex: PERNAS, SUPERIOR, BRAÇOS)").upper().strip()
     
-    with st.form("novo_exercicio"):
-        col_t, col_e = st.columns([1, 2])
-        with col_t:
-            nome_treino = st.text_input("Treino (Ex: A, B, C)", max_chars=1).upper()
-        with col_e:
-            ex_selecionado = st.selectbox("Escolha o Exercício:", df_cat['nome'].tolist() if not df_cat.empty else [])
-        
-        if st.form_submit_button("Adicionar ao meu Plano"):
-            if nome_treino and ex_selecionado:
-                # Busca o emoji no catálogo para salvar junto
-                detalhe = df_cat[df_cat['nome'] == ex_selecionado].iloc[0]
-                supabase.table("exercicios").insert({
-                    "user_id": user_id, 
-                    "treino": nome_treino, 
-                    "nome": ex_selecionado, 
-                    "emoji": detalhe['emoji']
-                }).execute()
-                st.success(f"{ex_selecionado} adicionado ao Treino {nome_treino}!")
-                st.rerun()
-            else:
-                st.error("Preencha o nome do treino e selecione um exercício.")
+    ex_selecionado = st.selectbox("Escolha o Exercício:", df_cat['nome'].tolist() if not df_cat.empty else [])
+    
+    if st.form_submit_button("Adicionar ao meu Plano"):
+        if nome_treino and ex_selecionado:
+            # Busca o emoji no catálogo para salvar junto
+            detalhe = df_cat[df_cat['nome'] == ex_selecionado].iloc[0]
+            supabase.table("exercicios").insert({
+                "user_id": user_id, 
+                "treino": nome_treino, 
+                "nome": ex_selecionado, 
+                "emoji": detalhe['emoji']
+            }).execute()
+            st.success(f"{ex_selecionado} adicionado ao treino {nome_treino}!")
+            st.rerun()
+        else:
+            st.error("Preencha o nome do treino e selecione um exercício.")
 # -------------------------------
     st.divider()
     st.subheader("📋 Seus Exercícios (Clique na lixeira para excluir)")
