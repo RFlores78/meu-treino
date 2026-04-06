@@ -88,8 +88,7 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Hist�
 
 # --- MENU: CONFIGURAR ---
 if menu == "🆕 Configurar Meus Treinos":
-    # --- ADICIONE ESTE BLOCO AQUI ---
-    # --- SUBSTITUA O FORMULÁRIO DE ADIÇÃO POR ESTE ---
+   # --- SUBSTITUA O FORMULÁRIO DE ADIÇÃO POR ESTE ---
 st.subheader("➕ Adicionar Novo Exercício ao Plano")
 df_cat = buscar_catalogo()
 
@@ -113,6 +112,7 @@ with st.form("novo_exercicio"):
             st.rerun()
         else:
             st.error("Preencha o nome do treino e selecione um exercício.")
+
 # -------------------------------
     st.divider()
     st.subheader("📋 Seus Exercícios (Clique na lixeira para excluir)")
