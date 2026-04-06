@@ -1,27 +1,38 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 from datetime import datetime, timedelta
 import time
 from streamlit_calendar import calendar
-
-import streamlit as st
 from supabase import create_client, Client
 
-# Conexão com as chaves que você salvou nos Secrets
+# --- 1. CONFIGURAÇÃO DA PÁGINA (DEVE SER A PRIMEIRA LINHA) ---
+st.set_page_config(page_title="PowerLog PRO", page_icon="💪", layout="centered")
+
+# --- 2. CONEXÃO SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-# --- LÓGICA DE LOGIN ---
+# --- 3. ESTILO CSS E ÍCONES ---
+st.markdown(f"""
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
+    <style>
+    .stButton>button {{ width: 100%; border-radius: 12px; height: 3.5em; background-color: #007bff; color: white; font-weight: bold; }}
+    .ex-card {{ background: white; padding: 20px; border-radius: 20px; box-shadow: 0px 10px 20px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; border: 1px solid #e1e1e1; }}
+    .big-emoji {{ font-size: 50px; display: block; }}
+    .ex-title {{ font-size: 24px; font-weight: 800; color: #1e1e1e; }}
+    .time-display {{ font-size: 28px; font-weight: bold; color: #ff4b4b; background: #fff5f5; padding: 15px; border-radius: 15px; text-align: center; border: 2px solid #ffcccc; margin-bottom: 20px; }}
+    .metric-box {{ background: #f0f2f6; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 4. LÓGICA DE LOGIN ---
 if 'user' not in st.session_state:
     st.session_state.user = None
 
 def pagina_login():
     st.title("⚡ PowerLog PRO - Login")
-    
     aba = st.tabs(["Entrar", "Criar Conta"])
-    
     with aba[0]:
         email = st.text_input("E-mail", key="login_email")
         senha = st.text_input("Senha", type="password", key="login_senha")
@@ -32,352 +43,133 @@ def pagina_login():
                 st.rerun()
             except:
                 st.error("E-mail ou senha inválidos.")
-                
     with aba[1]:
         novo_email = st.text_input("E-mail", key="reg_email")
         nova_senha = st.text_input("Senha (mín. 6 caracteres)", type="password", key="reg_senha")
         if st.button("Cadastrar"):
             try:
-                res = supabase.auth.sign_up({"email": novo_email, "password": nova_senha})
-                st.success("Conta criada! Verifique o seu e-mail para confirmar.")
+                supabase.auth.sign_up({"email": novo_email, "password": nova_senha})
+                st.success("Conta criada! Verifique seu e-mail.")
             except Exception as e:
-                st.error(f"Erro ao criar conta: {e}")
+                st.error(f"Erro: {e}")
 
-# Bloqueio de ecrã: se não estiver logado, mostra apenas o login e para o código
 if st.session_state.user is None:
     pagina_login()
     st.stop()
 
-# Se chegou aqui, o usuário está logado
+# --- 5. VARIÁVEIS DE SESSÃO E FUNÇÕES ---
 user_id = st.session_state.user.id
-
-# --- FUNÇÕES DE BUSCA NO SUPABASE ---
+if 'hora_inicio' not in st.session_state: st.session_state.hora_inicio = None
 
 def buscar_catalogo():
-    # Puxa os exercícios que você acabou de cadastrar via SQL
     res = supabase.table("catalogo_exercicios").select("*").order("nome").execute()
     return pd.DataFrame(res.data)
 
 def buscar_meus_treinos():
-    # Puxa APENAS os exercícios que o aluno logado escolheu para ele
     res = supabase.table("exercicios").select("*").eq("user_id", user_id).execute()
     return pd.DataFrame(res.data)
 
-# --- INTERFACE ---
+def buscar_sessoes():
+    res = supabase.table("sessoes").select("*").eq("user_id", user_id).order("id", desc=True).execute()
+    return pd.DataFrame(res.data)
 
-st.title("⚡ PowerLog PRO")
-menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Configurar Meus Treinos"])
+def buscar_logs():
+    res = supabase.table("logs").select("*").eq("user_id", user_id).execute()
+    return pd.DataFrame(res.data)
 
-# 1. MENU PARA O ALUNO MONTAR O TREINO
-if menu == "🆕 Configurar Meus Treinos":
-    st.subheader("🛠️ Monte sua Grade de Treino")
-    
-    df_cat = buscar_catalogo()
-    
-    with st.form("form_montagem"):
-        nome_treino = st.text_input("Dê um nome ao treino (Ex: Treino A, Pernas)", placeholder="Ex: Superior")
-        
-        # O SEGREDO: O aluno escolhe da lista da Smart Fit que você buscou
-        escolha = st.selectbox("Escolha um exercício do catálogo:", df_cat['nome'].tolist())
-        
-        if st.form_submit_button("➕ Adicionar ao meu Plano"):
-            if nome_treino:
-                # Pega os detalhes (emoji) do exercício selecionado
-                detalhes = df_cat[df_cat['nome'] == escolha].iloc[0]
-                
-                # Salva na tabela 'exercicios' vinculando ao aluno logado
-                supabase.table("exercicios").insert({
-                    "user_id": user_id,
-                    "treino": nome_treino.upper(),
-                    "nome": escolha,
-                    "emoji": detalhes['emoji']
-                }).execute()
-                
-                st.success(f"{escolha} adicionado ao seu {nome_treino}!")
-                st.rerun()
-            else:
-                st.error("Escreva o nome do treino!")
-
-    st.divider()
-    st.write("📋 **Sua Configuração Atual:**")
-    meus_ex = buscar_meus_treinos()
-    if not meus_ex.empty:
-        st.dataframe(meus_ex[['treino', 'nome', 'emoji']], use_container_width=True, hide_index=True)
-
-# 2. MENU PARA O ALUNO EXECUTAR O TREINO
-elif menu == "🏋️ Treinar Agora":
-    meus_ex = buscar_meus_treinos()
-    
-    if meus_ex.empty:
-        st.warning("Você ainda não configurou nenhum treino. Vá em 'Configurar Meus Treinos'.")
-    else:
-        # Mostra apenas os treinos que ESSE aluno criou
-        lista_treinos = sorted(meus_ex['treino'].unique())
-        treino_sel = st.radio("Qual treino vamos fazer hoje?", lista_treinos, horizontal=True)
-        
-        # Filtra os exercícios que pertencem a esse treino escolhido
-        ex_disponiveis = meus_ex[meus_ex['treino'] == treino_sel]
-        ex_escolhido = st.selectbox("Selecione o Exercício:", ex_disponiveis['nome'])
-        
-        dados = ex_disponiveis[ex_disponiveis['nome'] == ex_escolhido].iloc[0]
-        st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
-        
-        # (Aqui você mantém seu código de salvar Peso e Repetições nos LOGS)
+# --- 6. INTERFACE PRINCIPAL ---
 st.sidebar.write(f"Logado como: {st.session_state.user.email}")
 if st.sidebar.button("Sair"):
     supabase.auth.sign_out()
     st.session_state.user = None
     st.rerun()
-# CÓDIGO PARA FORÇAR O ÍCONE NO CELULAR
-st.markdown(
-    f"""
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/RFlores78/meu-treino/main/icon.png">
-    """,
-    unsafe_allow_html=True
-)
 
-# Configuração da página
-st.set_page_config(page_title="PowerLog PRO", page_icon="💪", layout="centered")
+menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Configurar Meus Treinos"])
 
-# Estilo CSS Slim
-st.markdown("""
-    <style>
-    .stButton>button { width: 100%; border-radius: 12px; height: 3.5em; background-color: #007bff; color: white; font-weight: bold; }
-    .ex-card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0px 10px 20px rgba(0,0,0,0.05); text-align: center; margin-bottom: 20px; border: 1px solid #e1e1e1; }
-    .big-emoji { font-size: 50px; display: block; }
-    .ex-title { font-size: 24px; font-weight: 800; color: #1e1e1e; }
-    .time-display { font-size: 28px; font-weight: bold; color: #ff4b4b; background: #fff5f5; padding: 15px; border-radius: 15px; text-align: center; border: 2px solid #ffcccc; margin-bottom: 20px; }
-    .metric-box { background: #f0f2f6; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
-
-if 'hora_inicio' not in st.session_state: st.session_state.hora_inicio = None
-
-st.title("⚡ PowerLog PRO")
-menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Gerenciar Treinos"])
-
-if menu == "🏋️ Treinar Agora":
-   
-    try:
-        df_s = pd.read_sql("SELECT * FROM sessoes ORDER BY id DESC", conn)
-    except:
-        df_s = pd.DataFrame()
-    conn.close()
-
-    # --- MÉTRICAS DE INTELIGÊNCIA (Último Treino e Frequência) ---
-    if not df_s.empty:
-        ultimo = df_s.iloc[0]
-        try:
-            data_formatada = datetime.strptime(ultimo['data'], '%Y-%m-%d').strftime('%d/%m')
-        except:
-            data_formatada = ultimo['data']
-            
-        st.info(f"🔙 **Último Treino:** {ultimo['treino_tipo']} em {data_formatada}")
-        
-        st.write("**Frequência por Treino:**")
-        contagem = df_s['treino_tipo'].value_counts()
-        cols_count = st.columns(len(contagem))
-        for i, (tipo, qtd) in enumerate(contagem.items()):
-            cols_count[i].markdown(f"<div class='metric-box'>{tipo}<br>{qtd}x</div>", unsafe_allow_html=True)
-        st.divider()
-    # ------------------------------------------------------------
-
-    treino_sel = st.radio("Selecione o Treino atual:", sorted(lista_treinos) if lista_treinos else ["A"], horizontal=True)
-
-    # Lógica do Cronômetro
-    if st.session_state.hora_inicio:
-        seg_totais = int(time.time() - st.session_state.hora_inicio)
-        tempo_f = f"{seg_totais//60:02d}:{seg_totais%60:02d}"
-        st.markdown(f"<div class='time-display'>⏱️ {tempo_f}</div>", unsafe_allow_html=True)
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🔄 Atualizar Tempo"): st.rerun()
-        with c2:
-            if st.button("🏁 ENCERRAR TREINO"):
-                conn = sqlite3.connect('treino_final_v2.db')
-                conn.cursor().execute("INSERT INTO sessoes (data, duracao, treino_tipo) VALUES (?, ?, ?)", 
-                                    (datetime.now().strftime("%Y-%m-%d"), tempo_f, treino_sel))
-                conn.commit(); conn.close()
-                st.session_state.hora_inicio = None
-                st.success("Treino encerrado!")
+# --- MENU: CONFIGURAR ---
+if menu == "🆕 Configurar Meus Treinos":
+    st.subheader("🛠️ Monte sua Grade de Treino")
+    df_cat = buscar_catalogo()
+    with st.form("form_montagem"):
+        nome_treino = st.text_input("Nome do treino (Ex: Treino A)", placeholder="Ex: Superior")
+        escolha = st.selectbox("Escolha do catálogo:", df_cat['nome'].tolist() if not df_cat.empty else [])
+        if st.form_submit_button("➕ Adicionar"):
+            if nome_treino and not df_cat.empty:
+                detalhes = df_cat[df_cat['nome'] == escolha].iloc[0]
+                supabase.table("exercicios").insert({
+                    "user_id": user_id, "treino": nome_treino.upper(), "nome": escolha, "emoji": detalhes['emoji']
+                }).execute()
+                st.success("Adicionado!")
                 st.rerun()
-    else:
-        if st.button("▶️ INICIAR NOVO TREINO"):
-            st.session_state.hora_inicio = time.time()
-            st.rerun()
 
     st.divider()
+    meus_ex = buscar_meus_treinos()
+    if not meus_ex.empty:
+        st.dataframe(meus_ex[['treino', 'nome', 'emoji']], use_container_width=True, hide_index=True)
 
-    conn = sqlite3.connect('treino_final_v2.db')
-    df_ex = pd.read_sql(f"SELECT * FROM exercicios WHERE treino='{treino_sel}'", conn)
-    conn.close()
+# --- MENU: TREINAR ---
+elif menu == "🏋️ Treinar Agora":
+    meus_ex = buscar_meus_treinos()
+    df_s = buscar_sessoes()
 
-    if not df_ex.empty:
-        ex_escolhido = st.selectbox("Selecione o Exercício:", df_ex['nome'])
-        dados = df_ex[df_ex['nome'] == ex_escolhido].fillna('').iloc[0]
-        st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
+    if not df_s.empty:
+        ultimo = df_s.iloc[0]
+        st.info(f"🔙 Último: {ultimo['treino_tipo']} em {ultimo['data']}")
 
-        n_series = st.number_input("Quantidade de Séries", 1, 10, 4)
+    if meus_ex.empty:
+        st.warning("Configure seus treinos primeiro!")
+    else:
+        lista_t = sorted(meus_ex['treino'].unique())
+        treino_sel = st.radio("Treino de hoje:", lista_t, horizontal=True)
 
-        if dados['e1'] != '':
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**{dados['e1']}**")
-                p1 = st.number_input("Peso (kg)", 0.0, 500.0, step=0.5, key=f"p1_{ex_escolhido}")
-                r1 = st.number_input("Repetições", 0, 100, 12, key=f"r1_{ex_escolhido}")
-            with col2:
-                st.write(f"**{dados['e2']}**")
-                p2 = st.number_input("Peso (kg)", 0.0, 500.0, step=0.5, key=f"p2_{ex_escolhido}")
-                r2 = st.number_input("Repetições", 0, 100, 12, key=f"r2_{ex_escolhido}")
-            
-            if st.button(f"✅ Salvar {n_series} Séries"):
-                conn = sqlite3.connect('treino_final_v2.db'); c = conn.cursor(); hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
-                for i in range(int(n_series)):
-                    c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['e1'], p1, r1, i+1))
-                    c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['e2'], p2, r2, i+1))
-                conn.commit(); conn.close(); st.success("Salvo!")
+        if st.session_state.hora_inicio:
+            seg = int(time.time() - st.session_state.hora_inicio)
+            st.markdown(f"<div class='time-display'>⏱️ {seg//60:02d}:{seg%60:02d}</div>", unsafe_allow_html=True)
+            if st.button("🏁 ENCERRAR TREINO"):
+                tempo_f = f"{seg//60:02d}:{seg%60:02d}"
+                supabase.table("sessoes").insert({
+                    "user_id": user_id, "data": datetime.now().strftime("%Y-%m-%d"),
+                    "duracao": tempo_f, "treino_tipo": treino_sel
+                }).execute()
+                st.session_state.hora_inicio = None
+                st.rerun()
         else:
-            c1, c2 = st.columns(2)
-            with c1: p = st.number_input("Peso (kg)", 0.0, 500.0, step=0.5, key=f"p_{ex_escolhido}")
-            with c2: r = st.number_input("Repetições", 0, 100, 10, key=f"r_{ex_escolhido}")
+            if st.button("▶️ INICIAR NOVO TREINO"):
+                st.session_state.hora_inicio = time.time()
+                st.rerun()
 
-            if st.button(f"✅ Salvar {n_series} Séries"):
-                conn = sqlite3.connect('treino_final_v2.db'); c = conn.cursor(); hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
-                for i in range(int(n_series)):
-                    c.execute("INSERT INTO logs (data, exercicio, peso, reps, serie_num) VALUES (?, ?, ?, ?, ?)", (hoje, dados['nome'], p, r, i+1))
-                conn.commit(); conn.close(); st.success("Salvo!")
-
-elif menu == "🆕 Gerenciar Treinos":
-    st.subheader("Adicionar Novo Exercício")
-    with st.form("novo_exercicio"):
-        t_id = st.text_input("Treino (Ex: E, F)", placeholder="E")
-        t_emoji = st.text_input("Emoji", value="💪")
-        t_nome = st.text_input("Nome do Exercício/Combo")
-        t_e1 = st.text_input("Exercício 1 (Se combo)")
-        t_e2 = st.text_input("Exercício 2 (Se combo)")
-        if st.form_submit_button("➕ Adicionar"):
-            if t_id and t_nome:
-                conn = sqlite3.connect('treino_final_v2.db')
-                conn.cursor().execute("INSERT INTO exercicios (treino, emoji, nome, e1, e2) VALUES (?, ?, ?, ?, ?)", (t_id.upper(), t_emoji, t_nome, t_e1, t_e2))
-                conn.commit(); conn.close()
-                st.success("Adicionado!")
-            else: st.error("Preencha os campos!")
-
-elif menu == "📊 Histórico":
-    conn = sqlite3.connect('treino_final_v2.db')
-    df_l = pd.read_sql("SELECT * FROM logs", conn)
-    df_s = pd.read_sql("SELECT * FROM sessoes", conn)
-    conn.close()
-
-    tab1, tab2, tab3 = st.tabs(["🗓️ Calendário", "📈 Evolução de Carga", "📋 Tabela de Logs"])
-
-    with tab1:
-        st.subheader("🗓️ Resumo de Atividades")
-        eventos = []
-        if not df_s.empty:
-            for _, row in df_s.iterrows():
-                eventos.append({
-                    "title": f"💪 {row['treino_tipo']}",
-                    "start": row['data'],
-                    "display": 'background',
-                    "backgroundColor": "#007bff"
-                })
-        
-        # Calendário em Português
-        calendar(
-            events=eventos, 
-            options={
-                "locale": "pt-br",
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
-                "buttonText": {"today": "Hoje"}
-            }
-        )
-        
         st.divider()
-        if not df_s.empty:
-            df_s['data_dt'] = pd.to_datetime(df_s['data'])
-            hoje = datetime.now()
-            
-            def stats_periodo(df, dias):
-                filtro = df[df['data_dt'] > (hoje - timedelta(days=dias))]
-                minutos = sum(int(t.split(':')[0]) for t in filtro['duracao'])
-                dias_treinados = filtro['data'].nunique()
-                return minutos, dias_treinados
+        ex_f = meus_ex[meus_ex['treino'] == treino_sel]
+        escolhido = st.selectbox("Exercício:", ex_f['nome'])
+        dados = ex_f[ex_f['nome'] == escolhido].iloc[0]
+        
+        st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
+        
+        n_series = st.number_input("Séries", 1, 10, 4)
+        c1, c2 = st.columns(2)
+        with c1: p = st.number_input("Peso (kg)", 0.0, 500.0, step=0.5)
+        with c2: r = st.number_input("Reps", 0, 100, 10)
 
-            m_sem, d_sem = stats_periodo(df_s, 7)
-            m_mes, d_mes = stats_periodo(df_s, 30)
-            m_ano, d_ano = stats_periodo(df_s, 365)
+        if st.button("✅ Salvar Séries"):
+            hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
+            for i in range(int(n_series)):
+                supabase.table("logs").insert({
+                    "user_id": user_id, "data": hoje, "exercicio": escolhido, "peso": p, "reps": r, "serie_num": i+1
+                }).execute()
+            st.success("Salvo!")
 
-            # Exibição Separada: Minutos e Dias
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown(f"""<div class='metric-box'>
-                    📅 SEMANA<br>
-                    ⏱️ {m_sem} min<br>
-                    🔥 {d_sem} dias
-                </div>""", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"""<div class='metric-box'>
-                    📅 MÊS<br>
-                    ⏱️ {m_mes} min<br>
-                    🔥 {d_mes} dias
-                </div>""", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"""<div class='metric-box'>
-                    📅 ANO<br>
-                    ⏱️ {m_ano} min<br>
-                    🔥 {d_ano} dias
-                </div>""", unsafe_allow_html=True) 
-            
+# --- MENU: HISTÓRICO ---
+elif menu == "📊 Histórico":
+    df_l = buscar_logs()
+    df_s = buscar_sessoes()
+    
+    tab1, tab2 = st.tabs(["🗓️ Calendário", "📈 Evolução"])
+    with tab1:
+        eventos = [{"title": f"💪 {r['treino_tipo']}", "start": r['data'], "backgroundColor": "#007bff"} for _, r in df_s.iterrows()]
+        calendar(events=eventos, options={"locale": "pt-br"})
     with tab2:
-        st.subheader("Evolução de Peso")
         if not df_l.empty:
-            ex_f = st.selectbox("Selecione o exercício:", sorted(df_l['exercicio'].unique()))
-            df_evol = df_l[df_l['exercicio'] == ex_f].copy()
-            df_evol['data_dt'] = pd.to_datetime(df_evol['data'], format="%d/%m/%Y %H:%M")
-            st.line_chart(df_evol.sort_values('data_dt').set_index('data_dt')['peso'])
-
-    with tab3:
-        if not df_l.empty:
-            st.subheader("📋 Resumo por Exercício")
-            
-            # Criando o DataFrame de exibição agrupado
-            df_grouped = df_l.copy()
-            
-            # Agrupamos por Data e Exercício para contar as séries e pegar os valores
-            # Usamos 'max' para peso e reps pois você confirmou que são iguais em todas as séries
-            df_resumo = df_grouped.groupby(['data', 'exercicio']).agg({
-                'serie_num': 'count',
-                'peso': 'max',
-                'reps': 'max'
-            }).reset_index()
-            
-            # Ordenar pelo mais recente (assumindo formato de data string DD/MM/YYYY HH:MM)
-            df_resumo['data_dt'] = pd.to_datetime(df_resumo['data'], format="%d/%m/%Y %H:%M")
-            df_resumo = df_resumo.sort_values('data_dt', ascending=False)
-            
-            # Filtro
-            lista_ex = ["Todos"] + sorted(list(df_resumo['exercicio'].unique()))
-            filtro = st.selectbox("Filtrar exercício:", lista_ex, key="filtro_resumo")
-            
-            if filtro != "Todos":
-                df_resumo = df_resumo[df_resumo['exercicio'] == filtro]
-
-            st.dataframe(
-                df_resumo,
-                column_order=("data", "exercicio", "serie_num", "peso", "reps"),
-                column_config={
-                    "data": st.column_config.TextColumn("📅 Data"),
-                    "exercicio": st.column_config.TextColumn("🏋️ Exercício"),
-                    "serie_num": st.column_config.NumberColumn("🔢 Séries Totais"),
-                    "peso": st.column_config.NumberColumn("⚖️ Carga", format="%.1f kg"),
-                    "reps": st.column_config.NumberColumn("🔁 Reps/Série", format="%d reps"),
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-        else:
-            st.info("Ainda não há registros para resumir.")
+            ex_sel = st.selectbox("Exercício:", sorted(df_l['exercicio'].unique()))
+            df_ev = df_l[df_l['exercicio'] == ex_sel].copy()
+            df_ev['data_dt'] = pd.to_datetime(df_ev['data'], format="%d/%m/%Y %H:%M")
+            st.line_chart(df_ev.sort_values('data_dt').set_index('data_dt')['peso'])
