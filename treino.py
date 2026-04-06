@@ -131,7 +131,7 @@ elif menu == "📊 Histórico":
     tab1, tab2, tab3 = st.tabs(["🗓️ Calendário", "📈 Evolução de Carga", "📋 Tabela de Logs"])
 
     with tab1:
-        st.subheader("Dias de Treino")
+        st.subheader("🗓️ Resumo de Atividades")
         eventos = []
         if not df_s.empty:
             for _, row in df_s.iterrows():
@@ -142,7 +142,7 @@ elif menu == "📊 Histórico":
                     "backgroundColor": "#007bff"
                 })
         
-        # Calendário traduzido para Português
+        # Calendário em Português
         calendar(
             events=eventos, 
             options={
@@ -167,11 +167,26 @@ elif menu == "📊 Histórico":
             m_mes, d_mes = stats_periodo(df_s, 30)
             m_ano, d_ano = stats_periodo(df_s, 365)
 
-            # Exibição com Minutos e Dias conforme solicitado
+            # Exibição Separada: Minutos e Dias
             c1, c2, c3 = st.columns(3)
-            c1.markdown(f"<div class='metric-box'>Semana<br>{m_sem} min<br>{d_sem} dias</div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='metric-box'>Mês<br>{m_mes} min<br>{d_mes} dias</div>", unsafe_allow_html=True)
-            c3.markdown(f"<div class='metric-box'>Ano<br>{m_ano} min<br>{d_ano} dias</div>", unsafe_allow_html=True)
+            with c1:
+                st.markdown(f"""<div class='metric-box'>
+                    📅 SEMANA<br>
+                    ⏱️ {m_sem} min<br>
+                    🔥 {d_sem} dias
+                </div>""", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""<div class='metric-box'>
+                    📅 MÊS<br>
+                    ⏱️ {m_mes} min<br>
+                    🔥 {d_mes} dias
+                </div>""", unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"""<div class='metric-box'>
+                    📅 ANO<br>
+                    ⏱️ {m_ano} min<br>
+                    🔥 {d_ano} dias
+                </div>""", unsafe_allow_html=True) 
             
     with tab2:
         st.subheader("Evolução de Peso")
