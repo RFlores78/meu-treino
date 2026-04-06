@@ -103,9 +103,24 @@ if menu == "🆕 Configurar Meus Treinos":
                 st.rerun()
 
     st.divider()
+    st.write("📋 **Sua Configuração Atual:**")
     meus_ex = buscar_meus_treinos()
+    
     if not meus_ex.empty:
-        st.dataframe(meus_ex[['treino', 'nome', 'emoji']], use_container_width=True, hide_index=True)
+        for i, row in meus_ex.iterrows():
+            col1, col2, col3 = st.columns([1, 3, 1])
+            with col1:
+                st.write(f"{row['treino']}")
+            with col2:
+                st.write(f"{row['emoji']} {row['nome']}")
+            with col3:
+                # Botão de excluir para cada linha
+                if st.button("🗑️", key=f"del_{row['id']}"):
+                    supabase.table("exercicios").delete().eq("id", row['id']).execute()
+                    st.success("Excluído!")
+                    st.rerun()
+    else:
+        st.info("Nenhum exercício configurado.")
 
 # --- MENU: TREINAR ---
 elif menu == "🏋️ Treinar Agora":
