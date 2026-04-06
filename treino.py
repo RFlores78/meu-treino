@@ -38,11 +38,36 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Hist�
 
 if menu == "🏋️ Treinar Agora":
     conn = sqlite3.connect('treino_final_v2.db')
+    # Carrega treinos e sessões para as métricas de inteligência
     lista_treinos = pd.read_sql("SELECT DISTINCT treino FROM exercicios", conn)['treino'].tolist()
+    # Tenta carregar as sessões; se a tabela estiver vazia, cria um DataFrame vazio
+    try:
+        df_s = pd.read_sql("SELECT * FROM sessoes ORDER BY id DESC", conn)
+    except:
+        df_s = pd.DataFrame()
     conn.close()
-    
-    treino_sel = st.radio("Selecione o Treino:", sorted(lista_treinos) if lista_treinos else ["A"], horizontal=True)
 
+    # --- MÉTRICAS DE INTELIGÊNCIA (Último Treino e Frequência) ---
+    if not df_s.empty:
+        ultimo = df_s.iloc[0]
+        try:
+            data_formatada = datetime.strptime(ultimo['data'], '%Y-%m-%d').strftime('%d/%m')
+        except:
+            data_formatada = ultimo['data']
+            
+        st.info(f"🔙 **Último Treino:** {ultimo['treino_tipo']} em {data_formatada}")
+        
+        st.write("**Frequência por Treino:**")
+        contagem = df_s['treino_tipo'].value_counts()
+        cols_count = st.columns(len(contagem))
+        for i, (tipo, qtd) in enumerate(contagem.items()):
+            cols_count[i].markdown(f"<div class='metric-box'>{tipo}<br>{qtd}x</div>", unsafe_allow_html=True)
+        st.divider()
+    # ------------------------------------------------------------
+
+    treino_sel = st.radio("Selecione o Treino atual:", sorted(lista_treinos) if lista_treinos else ["A"], horizontal=True)
+
+    # Lógica do Cronômetro
     if st.session_state.hora_inicio:
         seg_totais = int(time.time() - st.session_state.hora_inicio)
         tempo_f = f"{seg_totais//60:02d}:{seg_totais%60:02d}"
@@ -61,7 +86,7 @@ if menu == "🏋️ Treinar Agora":
                 st.success("Treino encerrado!")
                 st.rerun()
     else:
-        if st.button("▶️ INICIAR TREINO"):
+        if st.button("▶️ INICIAR NOVO TREINO"):
             st.session_state.hora_inicio = time.time()
             st.rerun()
 
