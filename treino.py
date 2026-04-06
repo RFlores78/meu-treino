@@ -174,61 +174,67 @@ elif menu == "🏋️ Treinar Agora":
             st.success("Salvo!")
 
 # --- MENU: HISTÓRICO ---
+# --- MENU: HISTÓRICO ---
 elif menu == "📊 Histórico":
     df_l = buscar_logs()
     df_s = buscar_sessoes()
 
-    # --- CÁLCULO DE MÉTRICAS ---
+    # 1. MÉTRICAS DE TEMPO (Dias e Minutos)
     if not df_s.empty:
-        # Garante que a data seja lida corretamente
         df_s['data_dt'] = pd.to_datetime(df_s['data'], errors='coerce')
         hoje = datetime.now()
 
         def calcular_stats(dias):
-            # Filtra o período
             filtro = df_s[df_s['data_dt'] > (hoje - timedelta(days=dias))].copy()
-            
-            # Converte "MM:SS" para minutos totais
-            def converter_minutos(tempo_str):
+            def conv_min(t):
                 try:
-                    m, s = map(int, tempo_str.split(':'))
-                    return m + (s / 60)
-                except:
-                    return 0
-            
-            total_minutos = filtro['duracao'].apply(converter_minutos).sum()
-            dias_treinados = filtro['data'].nunique()
-            return int(total_minutos), dias_treinados
+                    m, s = map(int, str(t).split(':'))
+                    return m + (s/60)
+                except: return 0
+            t_min = filtro['duracao'].apply(conv_min).sum()
+            d_treino = filtro['data'].nunique()
+            return int(t_min), d_treino
 
-        # Calcula os 3 períodos
         m_sem, d_sem = calcular_stats(7)
         m_mes, d_mes = calcular_stats(30)
         m_ano, d_ano = calcular_stats(365)
 
-        # --- EXIBIÇÃO DAS MÉTRICAS ---
         c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown(f"<div class='metric-box'>📅 SEMANA<br>⏱️ {m_sem} min<br>🔥 {d_sem} dias</div>", unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"<div class='metric-box'>📅 MÊS<br>⏱️ {m_mes} min<br>🔥 {d_mes} dias</div>", unsafe_allow_html=True)
-        with c3:
-            st.markdown(f"<div class='metric-box'>📅 ANO<br>⏱️ {m_ano} min<br>🔥 {d_ano} dias</div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='metric-box'>📅 SEMANA<br>⏱️ {m_sem} min<br>🔥 {d_sem} dias</div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='metric-box'>📅 MÊS<br>⏱️ {m_mes} min<br>🔥 {d_mes} dias</div>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<div class='metric-box'>📅 ANO<br>⏱️ {m_ano} min<br>🔥 {d_ano} dias</div>", unsafe_allow_html=True)
         st.divider()
-        
+
+    # 2. DEFINIÇÃO DAS ABAS (Isso evita o NameError)
+    tab1, tab2, tab3 = st.tabs(["🗓️ Calendário", "📈 Evolução", "📋 Tabela de Logs"])
+
+    with tab1:
+        eventos = []
+        if not df_s.empty:
+            for _, r in df_s.iterrows():
+                eventos.append({"title": f"💪 {r['treino_tipo']}", "start": r['data'], "backgroundColor": "#007bff"})
+        calendar(events=eventos, options={"locale": "pt-br"})
+
     with tab2:
         if not df_l.empty:
-            ex_sel = st.selectbox("Exercício:", sorted(df_l['exercicio'].unique()))
+            ex_sel = st.selectbox("Selecione o exercício:", sorted(df_l['exercicio'].unique()))
             df_ev = df_l[df_l['exercicio'] == ex_sel].copy()
-            
-            # SOLUÇÃO PARA O ERRO: Converte a data de forma flexível
-            # O 'errors=coerce' transforma datas inválidas em NaT (Not a Time) para não quebrar o app
             df_ev['data_dt'] = pd.to_datetime(df_ev['data'], dayfirst=True, errors='coerce')
-            
-            # Remove linhas onde a data falhou na conversão
-            df_ev = df_ev.dropna(subset=['data_dt'])
-            
+            df_ev = df_ev.dropna(subset=['data_dt']).sort_values('data_dt')
             if not df_ev.empty:
-                df_plot = df_ev.sort_values('data_dt').set_index('data_dt')
-                st.line_chart(df_plot['peso'])
-            else:
-                st.warning("Formato de data incompatível para gerar o gráfico.")
+                st.line_chart(df_ev.set_index('data_dt')['peso'])
+        else:
+            st.info("Ainda não há logs para gerar o gráfico.")
+
+    with tab3:
+        if not df_l.empty:
+            st.write("### Gerenciar Registros")
+            # Adicionei aqui a opção de excluir um log errado como você perguntou antes
+            for i, row in df_l.sort_values('id', ascending=False).head(10).iterrows():
+                cols = st.columns([2, 2, 1, 1])
+                cols[0].write(f"{row['data']}")
+                cols[1].write(f"{row['exercicio']}")
+                cols[2].write(f"{row['peso']}kg")
+                if cols[3].button("🗑️", key=f"dellog_{row['id']}"):
+                    supabase.table("logs").delete().eq("id", row['id']).execute()
+                    st.rerun()
