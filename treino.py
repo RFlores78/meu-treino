@@ -89,69 +89,38 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Hist�
 # --- MENU: CONFIGURAR ---
 # --- MENU: CONFIGURAR ---
 if menu == "🆕 Configurar Meus Treinos":
-    st.divider()
     st.subheader("➕ Adicionar Novo Exercício ao Plano")
-    df_cat = buscar_catalogo()
-    
-    with st.form("novo_exercicio"):
-        # Removido o max_chars=1 para permitir nomes como PERNAS ou SUPERIOR
-        nome_treino = st.text_input("Nome do Treino (Ex: PERNAS, SUPERIOR)").upper().strip()
-        
-        ex_selecionado = st.selectbox("Escolha o Exercício:", df_cat['nome'].tolist() if not df_cat.empty else [])
-        
-        if st.form_submit_button("Adicionar ao meu Plano"):
-            if nome_treino and ex_selecionado:
-                detalhe = df_cat[df_cat['nome'] == ex_selecionado].iloc[0]
-                supabase.table("exercicios").insert({
-                    "user_id": user_id, 
-                    "treino": nome_treino, 
-                    "nome": ex_selecionado, 
-                    "emoji": detalhe['emoji']
-                }).execute()
-                st.success(f"{ex_selecionado} adicionado ao treino {nome_treino}!")
-                st.rerun()
-            else:
-                st.error("Preencha o nome do treino e selecione um exercício.")
+df_cat = buscar_catalogo()
 
-    st.divider()
-    st.subheader("📋 Seus Exercícios (Clique na lixeira para excluir)")
-    meus_ex = buscar_meus_treinos()
+with st.form("novo_exercicio"):
+    nome_treino = st.text_input("Nome do Treino (Ex: PERNAS, SUPERIOR)").upper().strip()
     
-    if not meus_ex.empty:
-        # Ordena para ficar mais fácil de gerenciar
-        for i, row in meus_ex.sort_values('treino').iterrows():
-            col1, col2, col3 = st.columns([2, 3, 1])
-            with col1:
-                st.markdown(f"**{row['treino']}**")
-            with col2:
-                st.write(f"{row['emoji']} {row['nome']}")
-            with col3:
-                if st.button("🗑️", key=f"del_conf_{row['id']}"):
-                    supabase.table("exercicios").delete().eq("id", row['id']).execute()
-                    st.success("Excluído!")
-                    st.rerun()
+    # 1. Opção para exercício personalizado
+    novo_ex_manual = st.checkbox("Exercício não está na lista? Digitar manualmente")
+    
+    if novo_ex_manual:
+        ex_nome = st.text_input("Digite o nome do novo exercício:")
+        ex_emoji = "💪" # Emoji padrão para novos exercícios
     else:
-        st.info("Nenhum exercício configurado.")
+        ex_nome = st.selectbox("Escolha o Exercício:", df_cat['nome'].tolist() if not df_cat.empty else [])
+        # Busca o emoji do catálogo
+        if not df_cat.empty and ex_nome:
+            ex_emoji = df_cat[df_cat['nome'] == ex_nome].iloc[0]['emoji']
+        else:
+            ex_emoji = "💪"
 
-    st.divider()
-    st.write("📋 **Sua Configuração Atual:**")
-    meus_ex = buscar_meus_treinos()
-    
-    if not meus_ex.empty:
-        for i, row in meus_ex.iterrows():
-            col1, col2, col3 = st.columns([1, 3, 1])
-            with col1:
-                st.write(f"{row['treino']}")
-            with col2:
-                st.write(f"{row['emoji']} {row['nome']}")
-            with col3:
-                # Botão de excluir para cada linha
-                if st.button("🗑️", key=f"del_{row['id']}"):
-                    supabase.table("exercicios").delete().eq("id", row['id']).execute()
-                    st.success("Excluído!")
-                    st.rerun()
-    else:
-        st.info("Nenhum exercício configurado.")
+    if st.form_submit_button("Adicionar ao meu Plano"):
+        if nome_treino and ex_nome:
+            supabase.table("exercicios").insert({
+                "user_id": user_id, 
+                "treino": nome_treino, 
+                "nome": ex_nome, 
+                "emoji": ex_emoji
+            }).execute()
+            st.success(f"{ex_nome} adicionado!")
+            st.rerun()
+        else:
+            st.error("Preencha todos os campos.")
 
 # --- MENU: TREINAR ---
 elif menu == "🏋️ Treinar Agora":
