@@ -175,10 +175,43 @@ elif menu == "📊 Histórico":
         else:
             st.info("Ainda não há dados para gerar o gráfico.")
 
-    with tab3:
+   with tab3:
         if not df_l.empty:
-            df_l_display = df_l.sort_values('id', ascending=False)
-            filtro = st.selectbox("Filtrar por exercício na tabela:", ["Todos"] + list(df_l_display['exercicio'].unique()))
-            if filtro != "Todos": 
-                df_l_display = df_l_display[df_l_display['exercicio'] == filtro]
-            st.dataframe(df_l_display[['data', 'exercicio', 'peso', 'reps', 'serie_num']], use_container_width=True)
+            st.subheader("📋 Registro Detalhado")
+            
+            # Preparação dos dados para exibição limpa
+            df_display = df_l.copy()
+            df_display = df_display.sort_values('id', ascending=False)
+            
+            # Filtro simplificado
+            lista_ex = ["Todos"] + sorted(list(df_display['exercicio'].unique()))
+            filtro = st.selectbox("Filtrar por exercício:", lista_ex, key="filtro_tabela")
+            
+            if filtro != "Todos":
+                df_display = df_display[df_display['exercicio'] == filtro]
+
+            # Configuração Profissional da Tabela
+            st.dataframe(
+                df_display,
+                column_order=("data", "exercicio", "serie_num", "peso", "reps"), # Ordem das colunas
+                column_config={
+                    "data": st.column_config.TextColumn("📅 Data/Hora"),
+                    "exercicio": st.column_config.TextColumn("🏋️ Exercício"),
+                    "serie_num": st.column_config.NumberColumn("🔢 Série"),
+                    "peso": st.column_config.NumberColumn("⚖️ Carga", format="%.1f kg"),
+                    "reps": st.column_config.NumberColumn("🔁 Repetições", format="%d reps"),
+                },
+                hide_index=True, # Remove a coluna de números da esquerda
+                use_container_width=True
+            )
+            
+            # Botão para limpar histórico (opcional, use com cuidado)
+            if st.checkbox("Mostrar opções de exclusão"):
+                if st.button("🗑️ Limpar todos os registros"):
+                    conn = sqlite3.connect('treino_final_v2.db')
+                    conn.cursor().execute("DELETE FROM logs")
+                    conn.commit(); conn.close()
+                    st.warning("Histórico apagado!")
+                    st.rerun()
+        else:
+            st.info("Nenhum registro encontrado.")
