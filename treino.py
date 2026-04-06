@@ -43,17 +43,14 @@ if menu == "🏋️ Treinar Agora":
     
     treino_sel = st.radio("Selecione o Treino:", sorted(lista_treinos) if lista_treinos else ["A"], horizontal=True)
 
-    # CRONÔMETRO COM LÓGICA DE ATUALIZAÇÃO MANUAL PARA EVITAR PISCAR
     if st.session_state.hora_inicio:
         seg_totais = int(time.time() - st.session_state.hora_inicio)
         tempo_f = f"{seg_totais//60:02d}:{seg_totais%60:02d}"
-        
         st.markdown(f"<div class='time-display'>⏱️ {tempo_f}</div>", unsafe_allow_html=True)
         
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🔄 Atualizar Tempo"): 
-                st.rerun()
+            if st.button("🔄 Atualizar Tempo"): st.rerun()
         with c2:
             if st.button("🏁 ENCERRAR TREINO"):
                 conn = sqlite3.connect('treino_final_v2.db')
@@ -77,7 +74,6 @@ if menu == "🏋️ Treinar Agora":
     if not df_ex.empty:
         ex_escolhido = st.selectbox("Selecione o Exercício:", df_ex['nome'])
         dados = df_ex[df_ex['nome'] == ex_escolhido].fillna('').iloc[0]
-        
         st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
 
         n_series = st.number_input("Quantidade de Séries", 1, 10, 4)
@@ -139,26 +135,15 @@ elif menu == "📊 Histórico":
         eventos = []
         if not df_s.empty:
             for _, row in df_s.iterrows():
-                eventos.append({
-                    "title": f"💪 {row['treino_tipo']}",
-                    "start": row['data'],
-                    "display": 'background',
-                    "backgroundColor": "#007bff"
-                })
+                eventos.append({"title": f"💪 {row['treino_tipo']}", "start": row['data'], "display": 'background', "backgroundColor": "#007bff"})
         calendar(events=eventos, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}})
         
-        # Resumo de Tempo
-        st.divider()
         if not df_s.empty:
             df_s['data_dt'] = pd.to_datetime(df_s['data'])
             hoje = datetime.now()
-            
-            # Cálculo de tempo por período
             def calc_tempo(df, dias):
                 filtro = df[df['data_dt'] > (hoje - timedelta(days=dias))]
-                minutos = sum(int(t.split(':')[0]) for t in filtro['duracao'])
-                return minutos
-
+                return sum(int(t.split(':')[0]) for t in filtro['duracao'])
             c1, c2, c3 = st.columns(3)
             c1.markdown(f"<div class='metric-box'>Semana<br>{calc_tempo(df_s, 7)} min</div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='metric-box'>Mês<br>{calc_tempo(df_s, 30)} min</div>", unsafe_allow_html=True)
@@ -170,12 +155,9 @@ elif menu == "📊 Histórico":
             ex_f = st.selectbox("Selecione o exercício:", sorted(df_l['exercicio'].unique()))
             df_evol = df_l[df_l['exercicio'] == ex_f].copy()
             df_evol['data_dt'] = pd.to_datetime(df_evol['data'], format="%d/%m/%Y %H:%M")
-            df_evol = df_evol.sort_values('data_dt')
-            st.line_chart(df_evol.set_index('data_dt')['peso'])
-        else:
-            st.info("Ainda não há dados para gerar o gráfico.")
+            st.line_chart(df_evol.sort_values('data_dt').set_index('data_dt')['peso'])
 
-   with tab3:
+    with tab3:
         if not df_l.empty:
             st.subheader("📋 Registro Detalhado")
             
