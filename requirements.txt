@@ -3,4 +3,4 @@ pandas
 streamlit-autorefresh
 streamlit-calendar
 supabase
-python atualizar_gifs.py
+
