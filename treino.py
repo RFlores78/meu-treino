@@ -147,7 +147,10 @@ elif menu == "🏋️ Treinar Agora":
 
         # EXIBIÇÃO DO GIF CORRIGIDA
         if link_gif and str(link_gif).strip() != "None":
-            st.image(link_gif, use_container_width=True)
+            col_espaco1, col_gif, col_espaco2 = st.columns([1, 2, 1])
+            with col_gif:
+                st.image(link_gif, width=300) # Define um tamanho fixo em pixels (ex: 300)
+            
         else:
             st.info("💡 Mantenha a postura correta.")
 
