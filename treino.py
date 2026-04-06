@@ -153,27 +153,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def init_db():
-    conn = sqlite3.connect('treino_final_v2.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS exercicios (id INTEGER PRIMARY KEY, treino TEXT, emoji TEXT, nome TEXT, e1 TEXT, e2 TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY, data TEXT, exercicio TEXT, peso REAL, reps INTEGER, serie_num INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS sessoes (id INTEGER PRIMARY KEY, data TEXT, duracao TEXT, treino_tipo TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
 if 'hora_inicio' not in st.session_state: st.session_state.hora_inicio = None
 
 st.title("⚡ PowerLog PRO")
 menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Histórico", "🆕 Gerenciar Treinos"])
 
 if menu == "🏋️ Treinar Agora":
-    conn = sqlite3.connect('treino_final_v2.db')
-    # Carrega treinos e sessões para as métricas de inteligência
-    lista_treinos = pd.read_sql("SELECT DISTINCT treino FROM exercicios", conn)['treino'].tolist()
-    # Tenta carregar as sessões; se a tabela estiver vazia, cria um DataFrame vazio
+   
     try:
         df_s = pd.read_sql("SELECT * FROM sessoes ORDER BY id DESC", conn)
     except:
