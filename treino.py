@@ -119,52 +119,55 @@ if menu == "🆕 Configurar Meus Treinos":
                 st.rerun()
 
 # --- MENU: TREINAR ---
+# --- MENU: TREINAR AGORA ---
 elif menu == "🏋️ Treinar Agora":
     meus_ex = buscar_meus_treinos()
-    df_s = buscar_sessoes()
+    df_cat = buscar_catalogo() # Puxamos o catálogo para pegar os GIFs
+    
     if meus_ex.empty:
         st.warning("Adicione exercícios no menu Configurar.")
     else:
         treino_sel = st.radio("Treino:", sorted(meus_ex['treino'].unique()), horizontal=True)
         
-        if st.session_state.hora_inicio:
-            seg = int(time.time() - st.session_state.hora_inicio)
-            st.markdown(f"<div class='time-display'>⏱️ {seg//60:02d}:{seg%60:02d}</div>", unsafe_allow_html=True)
-            if st.button("🏁 ENCERRAR"):
-                supabase.table("sessoes").insert({
-                    "user_id": user_id, "data": str(datetime.now().date()), 
-                    "duracao": f"{seg//60:02d}:{seg%60:02d}", "treino_tipo": treino_sel
-                }).execute()
-                st.session_state.hora_inicio = None
-                st.rerun()
-        else:
-            if st.button("▶️ INICIAR"):
-                st.session_state.hora_inicio = time.time()
-                st.rerun()
+        # ... (Mantém sua lógica de timer aqui) ...
 
         st.divider()
         ex_f = meus_ex[meus_ex['treino'] == treino_sel]
         escolhido = st.selectbox("Exercício:", ex_f['nome'])
-        dados = ex_f[ex_f['nome'] == escolhido].iloc[0]
         
-        st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div></div>", unsafe_allow_html=True)
+        # AJUSTE DO GIF: Busca o link no catálogo usando o nome do exercício
+        link_gif = ""
+        if not df_cat.empty:
+            match = df_cat[df_cat['nome'] == escolhido]
+            if not match.empty:
+                link_gif = match.iloc[0].get('gif_url', "")
 
-        # EXIBIÇÃO DO GIF
-        if 'gif_url' in dados and pd.notna(dados['gif_url']) and str(dados['gif_url']).strip() != "":
-            st.image(dados['gif_url'], use_container_width=True)
+        # Card do Exercício
+        st.markdown(f"<div class='ex-card'><div class='ex-title'>{escolhido}</div></div>", unsafe_allow_html=True)
+
+        # EXIBIÇÃO DO GIF CORRIGIDA
+        if link_gif and str(link_gif).strip() != "None":
+            st.image(link_gif, use_container_width=True)
         else:
             st.info("💡 Mantenha a postura correta.")
 
-        n_series = st.number_input("Séries", 1, 10, 4)
-        c1, c2 = st.columns(2)
-        p = c1.number_input("Peso (kg)", 0.0, 500.0, step=0.5)
-        r = c2.number_input("Reps", 0, 100, 10)
+        # Interface de Input
+        col_s, col_p, col_r = st.columns([1, 1, 1])
+        n_serie_atual = col_s.number_input("Série nº", 1, 10, 1)
+        p = col_p.number_input("Peso (kg)", 0.0, 500.0, step=0.5)
+        r = col_r.number_input("Reps", 0, 100, 10)
         
-        if st.button("✅ Salvar"):
+        if st.button("✅ Salvar Série"):
             hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
-            for i in range(int(n_series)):
-                supabase.table("logs").insert({"user_id": user_id, "data": hoje, "exercicio": escolhido, "peso": p, "reps": r, "serie_num": i+1}).execute()
-            st.success("Salvo!")
+            supabase.table("logs").insert({
+                "user_id": user_id, 
+                "data": hoje, 
+                "exercicio": escolhido, 
+                "peso": p, 
+                "reps": r, 
+                "serie_num": n_serie_atual
+            }).execute()
+            st.success(f"Série {n_serie_atual} salva!")
 
 # --- MENU: HISTÓRICO ---
 elif menu == "📊 Histórico":
