@@ -22,7 +22,7 @@ st.markdown("""
 
 # --- BANCO DE DADOS ---
 def init_db():
-    conn = sqlite3.connect('treino_v6.db')
+    conn = sqlite3.connect('treino_v7.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS exercicios 
                  (id INTEGER PRIMARY KEY, treino TEXT, emoji TEXT, nome TEXT, meta TEXT, e1 TEXT, e2 TEXT)''')
@@ -33,35 +33,35 @@ def init_db():
     
     c.execute("SELECT count(*) FROM exercicios")
     if c.fetchone()[0] == 0:
-        # e1 e e2 são os nomes individuais para exercícios combinados
         treinos = [
             # TREINO A
             ('A', '🔥', 'Combinado: Supino Inclinado + Crucifixo Inclinado', '4x12 + 4x15', 'Supino Inclinado (Halter)', 'Crucifixo Inclinado (Halter)'),
             ('A', '🔋', 'Combinado: Pulôver + Desenvolvimento', '3x15 + 3x15', 'Pulôver (Halter)', 'Desenvolvimento (Halter)'),
-            ('A', '🎯', 'Supino Reto com Halteres', '4 x 8 a 10', None, None),
-            ('A', '💀', 'Tríceps Testa com Halteres', '4 x 8 a 10', None, None),
-            ('A', '💪', 'Tríceps Francês com Halteres', '4 x 8 a 12', None, None),
+            ('A', '🎯', 'Supino Reto com Halteres', '4 x 8 a 10', '', ''),
+            ('A', '💀', 'Tríceps Testa com Halteres', '4 x 8 a 10', '', ''),
+            ('A', '💪', 'Tríceps Francês com Halteres', '4 x 8 a 12', '', ''),
             # TREINO B
-            ('B', '⏱️', 'Extensora Isométrica', '5 x 20 segundos', None, None),
-            ('B', '🦵', 'Extensora', '3 x 15', None, None),
-            ('B', '🚀', 'Leg Press c/ Pés Afastados', '4 x 8 a 10', None, None),
-            ('B', '🦶', 'Panturrilha no Leg Press', '4 x 15', None, None),
-            ('B', '💥', 'Leg Press Horizontal Unilateral', '3 x 8 a 10', None, None),
-            ('B', '🎢', 'Cadeira Flexora', '3 x 8 a 10', None, None),
-            ('B', '⏱️', 'Flexora Isometria', '4 x 20 segundos', None, None),
+            ('B', '⏱️', 'Extensora Isométrica', '5 x 20 segundos', '', ''),
+            ('B', '🦵', 'Extensora', '3 x 15', '', ''),
+            ('B', '🚀', 'Leg Press c/ Pés Afastados', '4 x 8 a 10', '', ''),
+            ('B', '🦶', 'Panturrilha no Leg Press', '4 x 15', '', ''),
+            ('B', '💥', 'Leg Press Horizontal Unilateral', '3 x 8 a 10', '', ''),
+            ('B', '🎢', 'Cadeira Flexora', '3 x 8 a 10', '', ''),
+            ('B', '⏱️', 'Flexora Isometria', '4 x 20 segundos', '', ''),
+            ('B', '🦶', 'Panturrilha no Leg Press (Extra)', '4 x 15', '', ''),
             # TREINO C
             ('C', '🛶', 'Combinado: Remada Curvada + Rosca Alternada', '4x15 + 4x15', 'Remada Curvada (Barra)', 'Rosca Alternada (Halter)'),
             ('C', '⚔️', 'Combinado: Remada Unilateral + Rosca Direta', '3x15 + 3x15', 'Remada Unilateral (Halter)', 'Rosca Direta (Halter)'),
-            ('C', '⛓️', 'Remada Fechada com Barra Reta', '4 x 8 a 10', None, None),
-            ('C', '🔨', 'Rosca Martelo com Halteres', '4 x 8 a 10', None, None),
-            ('C', '🎯', 'Rosca Concentrada', '3 x 8 a 12', None, None),
+            ('C', '⛓️', 'Remada Fechada com Barra Reta', '4 x 8 a 10', '', ''),
+            ('C', '🔨', 'Rosca Martelo com Halteres', '4 x 8 a 10', '', ''),
+            ('C', '🎯', 'Rosca Concentrada', '3 x 8 a 12', '', ''),
             # TREINO D
-            ('D', '🧬', 'Rosca Direta com Barra Reta 21', '3 x 21', None, None),
-            ('D', '📉', 'Rosca Direta Banco Inclinado', '3 x 8 a 12', None, None),
-            ('D', '🔼', 'Desenvolvimento Sentado (Neutro)', '4 x 8', None, None),
-            ('D', '🦅', 'Elevação Lateral com Halteres', '3 x 8 a 12', None, None),
-            ('D', '💪', 'Tríceps Francês com Halteres', '3 x 8 a 12', None, None),
-            ('D', '🐎', 'Tríceps Coice', '4 x 12', None, None)
+            ('D', '🧬', 'Rosca Direta com Barra Reta 21', '3 x 21', '', ''),
+            ('D', '📉', 'Rosca Direta Banco Inclinado', '3 x 8 a 12', '', ''),
+            ('D', '🔼', 'Desenvolvimento Sentado (Neutro)', '4 x 8', '', ''),
+            ('D', '🦅', 'Elevação Lateral com Halteres', '3 x 8 a 12', '', ''),
+            ('D', '💪', 'Tríceps Francês com Halteres', '3 x 8 a 12', '', ''),
+            ('D', '🐎', 'Tríceps Coice', '4 x 12', '', '')
         ]
         c.executemany("INSERT INTO exercicios (treino, emoji, nome, meta, e1, e2) VALUES (?, ?, ?, ?, ?, ?)", treinos)
     conn.commit()
@@ -77,7 +77,6 @@ menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📅 Calen
 if menu == "🏋️ Treinar Agora":
     treino_sel = st.radio("Selecione o Treino:", ["A", "B", "C", "D"], horizontal=True)
 
-    # Cronômetro
     c1, c2 = st.columns([2,1])
     if st.session_state.hora_inicio is None:
         if c1.button("▶️ Iniciar Treino"): st.session_state.hora_inicio = time.time(); st.rerun()
@@ -85,54 +84,51 @@ if menu == "🏋️ Treinar Agora":
         duracao = int((time.time() - st.session_state.hora_inicio) / 60)
         c1.warning(f"⏳ Tempo: {duracao} min")
         if c2.button("🏁 Finalizar"):
-            conn = sqlite3.connect('treino_v6.db'); conn.cursor().execute("INSERT INTO sessoes (data, duracao_min, treino_tipo) VALUES (?, ?, ?)", (datetime.now().strftime("%Y-%m-%d"), duracao, treino_sel)); conn.commit(); conn.close()
+            conn = sqlite3.connect('treino_v7.db'); conn.cursor().execute("INSERT INTO sessoes (data, duracao_min, treino_tipo) VALUES (?, ?, ?)", (datetime.now().strftime("%Y-%m-%d"), duracao, treino_sel)); conn.commit(); conn.close()
             st.session_state.hora_inicio = None; st.success("Finalizado!"); st.balloons(); time.sleep(1); st.rerun()
 
     st.divider()
 
-    conn = sqlite3.connect('treino_v6.db')
+    conn = sqlite3.connect('treino_v7.db')
     df_ex = pd.read_sql(f"SELECT * FROM exercicios WHERE treino='{treino_sel}'", conn)
     conn.close()
 
     if not df_ex.empty:
         ex_escolhido = st.selectbox("Selecione o Exercício:", df_ex['nome'])
-        dados = df_ex[df_ex['nome'] == ex_escolhido].iloc[0]
+        # Ajuste para evitar o erro de 'nan'
+        dados = df_ex[df_ex['nome'] == ex_escolhido].fillna('').iloc[0]
         
         st.markdown(f"<div class='ex-card'><span class='big-emoji'>{dados['emoji']}</span><div class='ex-title'>{dados['nome']}</div><div class='ex-subtitle'>Meta: {dados['meta']}</div></div>", unsafe_allow_html=True)
 
-        # SE FOR COMBINADO, ABRE DOIS CAMPOS
-        if dados['e1'] and dados['e2']:
+        # Lógica corrigida para exercícios combinados
+        if dados['e1'] != '' and dados['e2'] != '':
             st.markdown("<span class='combo-label'>SÉRIE COMBINADA</span>", unsafe_allow_html=True)
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"**1. {dados['e1']}**")
-                p1 = st.number_input(f"Peso (kg) - {dados['e1'][:10]}...", min_value=0.0, step=0.5, key="p1")
-                r1 = st.number_input(f"Reps - {dados['e1'][:10]}...", min_value=0, step=1, value=12, key="r1")
+                p1 = st.number_input(f"Peso (kg)", min_value=0.0, step=0.5, key="p1")
+                r1 = st.number_input(f"Reps", min_value=0, step=1, value=12, key="r1")
             with col2:
                 st.write(f"**2. {dados['e2']}**")
-                p2 = st.number_input(f"Peso (kg) - {dados['e2'][:10]}...", min_value=0.0, step=0.5, key="p2")
-                r2 = st.number_input(f"Reps - {dados['e2'][:10]}...", min_value=0, step=1, value=15, key="r2")
+                p2 = st.number_input(f"Peso (kg)", min_value=0.0, step=0.5, key="p2")
+                r2 = st.number_input(f"Reps", min_value=0, step=1, value=15, key="r2")
             
             if st.button("✅ Salvar Série Combinada"):
-                conn = sqlite3.connect('treino_v6.db')
-                c = conn.cursor()
+                conn = sqlite3.connect('treino_v7.db'); c = conn.cursor()
                 hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
                 c.execute("INSERT INTO logs (data, exercicio, peso, reps) VALUES (?, ?, ?, ?)", (hoje, dados['e1'], p1, r1))
                 c.execute("INSERT INTO logs (data, exercicio, peso, reps) VALUES (?, ?, ?, ?)", (hoje, dados['e2'], p2, r2))
-                conn.commit(); conn.close()
-                st.toast("Ambas as séries salvas!")
+                conn.commit(); conn.close(); st.toast("Salvo!")
         else:
-            # EXERCÍCIO SIMPLES
             c1, c2 = st.columns(2)
             with c1: p = st.number_input("Peso (kg)", min_value=0.0, step=0.5)
             with c2: r = st.number_input("Reps Feitas", min_value=0, step=1, value=10)
             if st.button("✅ Salvar Série"):
-                conn = sqlite3.connect('treino_v6.db'); conn.cursor().execute("INSERT INTO logs (data, exercicio, peso, reps) VALUES (?, ?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M"), dados['nome'], p, r)); conn.commit(); conn.close()
-                st.toast("Série Salva!")
+                conn = sqlite3.connect('treino_v7.db'); conn.cursor().execute("INSERT INTO logs (data, exercicio, peso, reps) VALUES (?, ?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M"), dados['nome'], p, r)); conn.commit(); conn.close(); st.toast("Salvo!")
 
 elif menu == "📅 Calendário & Stats":
     st.subheader("📅 Desempenho Anual")
-    conn = sqlite3.connect('treino_v6.db'); df_s = pd.read_sql("SELECT * FROM sessoes", conn); conn.close()
+    conn = sqlite3.connect('treino_v7.db'); df_s = pd.read_sql("SELECT * FROM sessoes", conn); conn.close()
     if not df_s.empty:
         df_s['data'] = pd.to_datetime(df_s['data'])
         col1, col2 = st.columns(2)
@@ -142,7 +138,7 @@ elif menu == "📅 Calendário & Stats":
 
 elif menu == "📊 Histórico de Séries":
     st.subheader("📈 Histórico por Exercício")
-    conn = sqlite3.connect('treino_v6.db'); df_l = pd.read_sql("SELECT data, exercicio, peso, reps FROM logs ORDER BY id DESC", conn); conn.close()
+    conn = sqlite3.connect('treino_v7.db'); df_l = pd.read_sql("SELECT data, exercicio, peso, reps FROM logs ORDER BY id DESC", conn); conn.close()
     if not df_l.empty:
         ex_filter = st.multiselect("Filtrar por Exercício:", df_l['exercicio'].unique())
         if ex_filter: df_l = df_l[df_l['exercicio'].isin(ex_filter)]
