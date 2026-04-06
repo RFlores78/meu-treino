@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+from streamlit_calendar import calendar
 
 # Configuração da página
 st.set_page_config(page_title="PowerLog PRO", page_icon="💪", layout="centered")
@@ -15,6 +16,7 @@ st.markdown("""
     .big-emoji { font-size: 50px; display: block; }
     .ex-title { font-size: 24px; font-weight: 800; color: #1e1e1e; }
     .time-display { font-size: 28px; font-weight: bold; color: #ff4b4b; background: #fff5f5; padding: 15px; border-radius: 15px; text-align: center; border: 2px solid #ffcccc; margin-bottom: 20px; }
+    .metric-box { background: #f0f2f6; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -50,7 +52,7 @@ if menu == "🏋️ Treinar Agora":
         
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🔄 Atualizar Tempo"): # Botão manual para ver o tempo sem piscar a tela toda hora
+            if st.button("🔄 Atualizar Tempo"): 
                 st.rerun()
         with c2:
             if st.button("🏁 ENCERRAR TREINO"):
@@ -125,11 +127,58 @@ elif menu == "🆕 Gerenciar Treinos":
             else: st.error("Preencha os campos!")
 
 elif menu == "📊 Histórico":
-    st.subheader("📈 Histórico")
     conn = sqlite3.connect('treino_final_v2.db')
-    df_l = pd.read_sql("SELECT data, exercicio, peso, reps, serie_num FROM logs ORDER BY id DESC", conn)
+    df_l = pd.read_sql("SELECT * FROM logs", conn)
+    df_s = pd.read_sql("SELECT * FROM sessoes", conn)
     conn.close()
-    if not df_l.empty:
-        filtro = st.selectbox("Filtrar:", ["Todos"] + list(df_l['exercicio'].unique()))
-        if filtro != "Todos": df_l = df_l[df_l['exercicio'] == filtro]
-        st.dataframe(df_l, use_container_width=True)
+
+    tab1, tab2, tab3 = st.tabs(["🗓️ Calendário", "📈 Evolução de Carga", "📋 Tabela de Logs"])
+
+    with tab1:
+        st.subheader("Dias de Treino")
+        eventos = []
+        if not df_s.empty:
+            for _, row in df_s.iterrows():
+                eventos.append({
+                    "title": f"💪 {row['treino_tipo']}",
+                    "start": row['data'],
+                    "display": 'background',
+                    "backgroundColor": "#007bff"
+                })
+        calendar(events=eventos, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}})
+        
+        # Resumo de Tempo
+        st.divider()
+        if not df_s.empty:
+            df_s['data_dt'] = pd.to_datetime(df_s['data'])
+            hoje = datetime.now()
+            
+            # Cálculo de tempo por período
+            def calc_tempo(df, dias):
+                filtro = df[df['data_dt'] > (hoje - timedelta(days=dias))]
+                minutos = sum(int(t.split(':')[0]) for t in filtro['duracao'])
+                return minutos
+
+            c1, c2, c3 = st.columns(3)
+            c1.markdown(f"<div class='metric-box'>Semana<br>{calc_tempo(df_s, 7)} min</div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='metric-box'>Mês<br>{calc_tempo(df_s, 30)} min</div>", unsafe_allow_html=True)
+            c3.markdown(f"<div class='metric-box'>Ano<br>{calc_tempo(df_s, 365)} min</div>", unsafe_allow_html=True)
+
+    with tab2:
+        st.subheader("Evolução de Peso")
+        if not df_l.empty:
+            ex_f = st.selectbox("Selecione o exercício:", sorted(df_l['exercicio'].unique()))
+            df_evol = df_l[df_l['exercicio'] == ex_f].copy()
+            df_evol['data_dt'] = pd.to_datetime(df_evol['data'], format="%d/%m/%Y %H:%M")
+            df_evol = df_evol.sort_values('data_dt')
+            st.line_chart(df_evol.set_index('data_dt')['peso'])
+        else:
+            st.info("Ainda não há dados para gerar o gráfico.")
+
+    with tab3:
+        if not df_l.empty:
+            df_l_display = df_l.sort_values('id', ascending=False)
+            filtro = st.selectbox("Filtrar por exercício na tabela:", ["Todos"] + list(df_l_display['exercicio'].unique()))
+            if filtro != "Todos": 
+                df_l_display = df_l_display[df_l_display['exercicio'] == filtro]
+            st.dataframe(df_l_display[['data', 'exercicio', 'peso', 'reps', 'serie_num']], use_container_width=True)
