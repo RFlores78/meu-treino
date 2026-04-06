@@ -1,74 +1,155 @@
 import streamlit as st
+import pandas as pd
 import sqlite3
 from datetime import datetime
-import pandas as pd
 
-# --- BANCO DE DADOS LOCAL NO TELEMÓVEL ---
-def init_db():
-    conn = sqlite3.connect('meu_treino_v2.db', check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS exercicios 
-                 (nome TEXT, treino TEXT, meta TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS logs 
-                 (data TEXT, exercicio TEXT, carga REAL, reps INTEGER, nota TEXT)''')
-    conn.commit()
-    return conn
+# Configuração da página para parecer App
+st.set_page_config(page_title="PowerLog PRO", page_icon="💪", layout="centered")
 
-conn = init_db()
-
-# --- INTERFACE MOBILE ---
-st.set_page_config(page_title="PowerLog", layout="centered")
-
+# Estilo CSS para interface profissional
 st.markdown("""
     <style>
-    .stButton>button { height: 70px; font-size: 20px; font-weight: bold; border-radius: 15px; }
-    .stMetric { background: #f0f2f6; padding: 10px; border-radius: 10px; }
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007bff; color: white; font-weight: bold; }
+    .stTextInput>div>div>input { border-radius: 10px; }
+    .css-1kyx60w { font-family: 'Helvetica Neue', sans-serif; }
+    div.stBadge { font-size: 1.2em; }
     </style>
     """, unsafe_allow_html=True)
 
-menu = st.sidebar.selectbox("Menu", ["Treinar Agora", "Novo Exercício", "Histórico/Evolução"])
+# --- BANCO DE DADOS ---
+def init_db():
+    conn = sqlite3.connect('treino_v2.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS exercicios 
+                 (id INTEGER PRIMARY KEY, treino TEXT, nome TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS logs 
+                 (id INTEGER PRIMARY KEY, data TEXT, exercicio TEXT, peso REAL, reps INTEGER)''')
+    
+    # Pré-carregamento dos treinos se a tabela estiver vazia
+    c.execute("SELECT count(*) FROM exercicios")
+    if c.fetchone()[0] == 0:
+        treinos_pre_definidos = [
+            # TREINO A
+            ('A', '🔥 Supino Inclinado (Halter) 4x12 + Crucifixo 4x15'),
+            ('A', '🔋 Pulôver (Halter) 3x15 + Desenv. 3x15'),
+            ('A', '🎯 Supino Reto (Halter) 4x 8-10'),
+            ('A', '💀 Tríceps Testa (Halter) 4x 8-10'),
+            ('A', '💪 Tríceps Francês (Halter) 4x 8-12'),
+            # TREINO B
+            ('B', '⏱️ Extensora Isométrica (5 x 20s)'),
+            ('B', '🦵 Extensora (3 x 15)'),
+            ('B', '🚀 Leg Press Pés Afastados (4x 8-10)'),
+            ('B', '🦶 Panturrilha no Leg Press (4 x 15)'),
+            ('B', '💥 Leg Press Horizontal Unilateral (3x 8-10)'),
+            ('B', '🎢 Cadeira Flexora (3x 8-10)'),
+            ('B', '⏱️ Flexora Isometria (4 x 20s)'),
+            # TREINO C
+            ('C', '🛶 Remada Curvada (Barra) 4x15 + Rosca Alt. 4x15'),
+            ('C', '⚔️ Remada Unilateral (Halter) 3x15 + Rosca Direta 3x15'),
+            ('C', '⛓️ Remada Fechada (Barra Reta) 4x 8-10'),
+            ('C', '🔨 Rosca Martelo (Halter) 4x 8-10'),
+            ('C', '🎯 Rosca Concentrada (3x 8-12)'),
+            # TREINO D
+            ('D', '🧬 Rosca Direta 21 (7+7+7)'),
+            ('D', '📉 Rosca Direta Banco Inclinado (3x 8-12)'),
+            ('D', '🔼 Desenv. Sentado Neutro (4 x 8)'),
+            ('D', '🦅 Elevação Lateral (3x 8-12)'),
+            ('D', '💪 Tríceps Francês (Halter) 3x 8-12'),
+            ('D', '🐎 Tríceps Coice (4 x 12)')
+        ]
+        c.executemany("INSERT INTO exercicios (treino, nome) VALUES (?, ?)", treinos_pre_definidos)
+    
+    conn.commit()
+    conn.close()
 
-if menu == "Treinar Agora":
-    treino_dia = st.radio("Qual o treino de hoje?", ["A", "B", "C", "D"], horizontal=True)
+init_db()
+
+# --- FUNÇÕES ---
+def salvar_serie(exercicio, peso, reps):
+    conn = sqlite3.connect('treino_v2.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO logs (data, exercicio, peso, reps) VALUES (?, ?, ?, ?)",
+              (datetime.now().strftime("%d/%m/%Y %H:%M"), exercicio, peso, reps))
+    conn.commit()
+    conn.close()
+
+# --- INTERFACE ---
+st.title("⚡ PowerLog PRO")
+
+menu = st.sidebar.selectbox("Navegação", ["🏋️ Treinar Agora", "📊 Evolução", "⚙️ Gerenciar Exercícios"])
+
+if menu == "🏋️ Treinar Agora":
+    st.subheader("Bora pra cima! 🚀")
     
-    exs = pd.read_sql_query(f"SELECT * FROM exercicios WHERE treino='{treino_dia}'", conn)
+    col1, col2 = st.columns(2)
+    with col1:
+        treino_sel = st.radio("Escolha o Treino:", ["A", "B", "C", "D"], horizontal=True)
     
-    if exs.empty:
-        st.info("Adiciona exercícios no menu lateral primeiro.")
+    conn = sqlite3.connect('treino_v2.db')
+    df_ex = pd.read_sql(f"SELECT nome FROM exercicios WHERE treino='{treino_sel}'", conn)
+    conn.close()
+
+    if not df_ex.empty:
+        exercicio_foco = st.selectbox("Selecione o Exercício:", df_ex['nome'])
+        
+        st.info(f"Registrando: {exercicio_foco}")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            peso = st.number_input("Peso (kg)", min_value=0.0, step=0.5, format="%.1f")
+        with c2:
+            reps = st.number_input("Reps", min_value=0, step=1)
+            
+        if st.button("✅ Salvar Série"):
+            salvar_serie(exercicio_foco, peso, reps)
+            st.success(f"Série de {reps}x com {peso}kg salva!")
+            st.balloons()
     else:
-        for _, row in exs.iterrows():
-            with st.expander(f"🏋️ {row['nome']} ({row['meta']})", expanded=True):
-                # Busca última carga para referência
-                last = pd.read_sql_query(f"SELECT carga, nota FROM logs WHERE exercicio='{row['nome']}' ORDER BY data DESC LIMIT 1", conn)
-                if not last.empty:
-                    st.caption(f"Anterior: {last['carga'].iloc[0]}kg | Obs: {last['nota'].iloc[0]}")
-                
-                c1, c2 = st.columns(2)
-                carga = c1.number_input("Kg", key=f"c_{row['nome']}", step=0.5)
-                reps = c2.number_input("Reps", key=f"r_{row['nome']}", step=1)
-                nota = st.text_input("Nota da série", key=f"n_{row['nome']}")
-                
-                if st.button(f"CONCLUIR {row['nome'].upper()}", key=f"b_{row['nome']}"):
-                    dt = datetime.now().strftime("%d/%m %H:%M")
-                    conn.execute("INSERT INTO logs VALUES (?,?,?,?,?)", (dt, row['nome'], carga, reps, nota))
-                    conn.commit()
-                    st.success("Série salva!")
+        st.warning("Nenhum exercício cadastrado para este treino.")
 
-elif menu == "Novo Exercício":
-    st.header("Adicionar Movimento")
-    n = st.text_input("Nome (ex: Leg Press)")
-    t = st.selectbox("Treino", ["A", "B", "C", "D"])
-    m = st.text_input("Meta (ex: 3x12)")
-    if st.button("Salvar no Plano"):
-        conn.execute("INSERT INTO exercicios VALUES (?,?,?)", (n, t, m))
-        conn.commit()
-        st.success("Exercício adicionado!")
+elif menu == "📊 Evolução":
+    st.subheader("📈 Histórico de Cargas")
+    conn = sqlite3.connect('treino_v2.db')
+    df_logs = pd.read_sql("SELECT * FROM logs ORDER BY id DESC", conn)
+    conn.close()
+    
+    if not df_logs.empty:
+        st.dataframe(df_logs[['data', 'exercicio', 'peso', 'reps']], use_container_width=True)
+        if st.button("🗑️ Limpar Histórico"):
+             conn = sqlite3.connect('treino_v2.db')
+             conn.cursor().execute("DELETE FROM logs")
+             conn.commit()
+             conn.close()
+             st.rerun()
+    else:
+        st.write("Ainda não há treinos registrados.")
 
-elif menu == "Histórico/Evolução":
-    st.header("📈 Evolução de Carga")
-    logs = pd.read_sql_query("SELECT * FROM logs", conn)
-    if not logs.empty:
-        ex_sel = st.selectbox("Escolha o exercício", logs['exercicio'].unique())
-        filtro = logs[logs['exercicio'] == ex_sel]
-        st.line_chart(filtro.set_index('data')['carga'])
-        st.table(filtro.tail(10))
+elif menu == "⚙️ Gerenciar Exercícios":
+    st.subheader("🛠️ Personalizar Treinos")
+    
+    with st.expander("➕ Adicionar Novo Exercício"):
+        novo_t = st.selectbox("Treino", ["A", "B", "C", "D"])
+        novo_n = st.text_input("Nome do Exercício")
+        if st.button("Salvar Novo"):
+            conn = sqlite3.connect('treino_v2.db')
+            conn.cursor().execute("INSERT INTO exercicios (treino, nome) VALUES (?, ?)", (novo_t, novo_n))
+            conn.commit()
+            conn.close()
+            st.success("Adicionado!")
+            st.rerun()
+
+    st.divider()
+    st.write("🗑️ **Excluir Exercícios Existentes:**")
+    conn = sqlite3.connect('treino_v2.db')
+    df_del = pd.read_sql("SELECT * FROM exercicios", conn)
+    conn.close()
+    
+    if not df_del.empty:
+        ex_para_deletar = st.selectbox("Escolha para remover:", df_del['nome'])
+        if st.button("Remover"):
+            conn = sqlite3.connect('treino_v2.db')
+            conn.cursor().execute(f"DELETE FROM exercicios WHERE nome='{ex_para_deletar}'")
+            conn.commit()
+            conn.close()
+            st.rerun()
