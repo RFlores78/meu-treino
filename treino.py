@@ -164,12 +164,32 @@ elif menu == "📊 Histórico":
     df_s = buscar_sessoes()
     
     tab1, tab2 = st.tabs(["🗓️ Calendário", "📈 Evolução"])
+    
     with tab1:
-        eventos = [{"title": f"💪 {r['treino_tipo']}", "start": r['data'], "backgroundColor": "#007bff"} for _, r in df_s.iterrows()]
+        eventos = []
+        if not df_s.empty:
+            for _, r in df_s.iterrows():
+                eventos.append({
+                    "title": f"💪 {r['treino_tipo']}", 
+                    "start": r['data'], 
+                    "backgroundColor": "#007bff"
+                })
         calendar(events=eventos, options={"locale": "pt-br"})
+        
     with tab2:
         if not df_l.empty:
             ex_sel = st.selectbox("Exercício:", sorted(df_l['exercicio'].unique()))
             df_ev = df_l[df_l['exercicio'] == ex_sel].copy()
-            df_ev['data_dt'] = pd.to_datetime(df_ev['data'], format="%d/%m/%Y %H:%M")
-            st.line_chart(df_ev.sort_values('data_dt').set_index('data_dt')['peso'])
+            
+            # SOLUÇÃO PARA O ERRO: Converte a data de forma flexível
+            # O 'errors=coerce' transforma datas inválidas em NaT (Not a Time) para não quebrar o app
+            df_ev['data_dt'] = pd.to_datetime(df_ev['data'], dayfirst=True, errors='coerce')
+            
+            # Remove linhas onde a data falhou na conversão
+            df_ev = df_ev.dropna(subset=['data_dt'])
+            
+            if not df_ev.empty:
+                df_plot = df_ev.sort_values('data_dt').set_index('data_dt')
+                st.line_chart(df_plot['peso'])
+            else:
+                st.warning("Formato de data incompatível para gerar o gráfico.")
